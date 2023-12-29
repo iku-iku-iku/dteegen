@@ -1,17 +1,53 @@
 #include "clang-c/CXString.h"
+#include <cassert>
 #include <clang-c/Index.h>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <vector>
 
+struct Param {
+  std::string type;
+  std::string name;
+};
+
+template <bool WithParam>
+std::string get_params_str(const std::vector<Param> &params) {
+  std::stringstream ss;
+  bool flag = false;
+  for (const auto &[type, name] : params) {
+    if (flag) {
+      ss << ", ";
+    }
+    if constexpr (WithParam) {
+      ss << type << " " << name;
+    } else {
+      ss << name;
+    }
+    flag = true;
+  }
+  return ss.str();
+}
+
+std::string get_params(const std::vector<Param> &params) {
+  return get_params_str<true>(params);
+}
+
+std::string get_param_names(const std::vector<Param> &params) {
+  return get_params_str<false>(params);
+}
+
 struct FunctionInfo {
   std::string name;
   std::string returnType;
-  std::vector<std::string> parameters;
+  std::vector<Param> parameters;
   std::string body;
 };
+
+std::vector<FunctionInfo> func_list;
 
 std::string getCursorSpelling(CXCursor cursor) {
   CXString cxStr = clang_getCursorSpelling(cursor);
@@ -36,12 +72,12 @@ std::string getFunctionReturnType(CXCursor cursor) {
   return str;
 }
 
-std::vector<std::string> getFunctionParameters(CXCursor cursor) {
-  std::vector<std::string> parameters;
+std::vector<Param> getFunctionParameters(CXCursor cursor) {
+  std::vector<Param> parameters;
   int numArgs = clang_Cursor_getNumArguments(cursor);
   for (int i = 0; i < numArgs; ++i) {
     CXCursor arg = clang_Cursor_getArgument(cursor, i);
-    parameters.push_back(getCursorType(arg) + " " + getCursorSpelling(arg));
+    parameters.push_back({getCursorType(arg), getCursorSpelling(arg)});
   }
   return parameters;
 }
@@ -115,33 +151,20 @@ CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
     funcInfo.returnType = getFunctionReturnType(cursor);
     funcInfo.parameters = getFunctionParameters(cursor);
     funcInfo.body = getFunctionBody(cursor);
-
-    std::cout << "Function Name: " << funcInfo.name << std::endl;
-    std::cout << "Return Type: " << funcInfo.returnType << std::endl;
-    std::cout << "Parameters: ";
-    for (const auto &param : funcInfo.parameters) {
-      std::cout << param << ", ";
-    }
-    std::cout << "\nFunction Body: " << funcInfo.body << "\n\n";
+    func_list.push_back(std::move(funcInfo));
   }
   return CXChildVisit_Recurse;
 }
 
-// 主函数
-int main(int argc, char **argv) {
-  if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <filename>\n";
-    return 1;
-  }
-
+void parse_file(const char *path) {
   CXIndex index = clang_createIndex(0, 0);
-  g_filepath = argv[1];
+  g_filepath = path;
   CXTranslationUnit unit = clang_parseTranslationUnit(
-      index, argv[1], nullptr, 0, nullptr, 0, CXTranslationUnit_None);
+      index, path, nullptr, 0, nullptr, 0, CXTranslationUnit_None);
 
   if (unit == nullptr) {
     std::cerr << "Unable to parse translation unit. Quitting.\n";
-    return 1;
+    return;
   }
 
   CXCursor cursor = clang_getTranslationUnitCursor(unit);
@@ -149,5 +172,132 @@ int main(int argc, char **argv) {
 
   clang_disposeTranslationUnit(unit);
   clang_disposeIndex(index);
+}
+
+#define PATTERN(name)                                                          \
+  { std::regex("(\\$\\{" #name "\\})"), &SourceContext::name }
+
+struct SourceContext {
+  std::string project;
+  std::string src;
+  std::string src_content;
+  std::string ret;
+  std::string params;
+  std::string param_names;
+  std::string func_name;
+  std::string interfaces;
+};
+
+std::vector<std::pair<std::regex, decltype(&SourceContext::src)>> replaces{
+    PATTERN(src),        PATTERN(src_content), PATTERN(ret),
+    PATTERN(params),     PATTERN(func_name),   PATTERN(param_names),
+    PATTERN(interfaces), PATTERN(project)};
+
+std::string parse_template(std::string templ, const SourceContext &ctx) {
+  std::string res = std::move(templ);
+  for (const auto &[pat, repl] : replaces) {
+    res = std::regex_replace(res, pat, ctx.*repl);
+  }
+  return res;
+}
+
+std::string get_filepath(std::ifstream &ifs, const SourceContext &ctx) {
+  assert(ifs);
+  std::string label, filepath;
+  ifs >> label;
+  assert(label == "path:");
+
+  ifs >> filepath;
+  return parse_template(filepath, ctx);
+}
+
+std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
+  assert(ifs);
+  std::string line;
+  std::stringstream ss;
+  while (std::getline(ifs, line)) {
+    ss << parse_template(line, ctx) << std::endl;
+  }
+  return ss.str();
+}
+
+std::string read_file_content(const std::string &filename) {
+  std::ifstream ifs(filename);
+  std::stringstream ss;
+  ss << ifs.rdbuf();
+  return ss.str();
+}
+
+void parse_template(std::ifstream &ifs, const SourceContext &ctx) {
+  const auto filepath = get_filepath(ifs, ctx);
+  const auto content = get_content(ifs, ctx);
+
+  const auto path = std::filesystem::path("./generated") / filepath;
+  std::cout << "GENERATED:" << path << std::endl;
+  std::filesystem::create_directories(path.parent_path());
+  std::ofstream ofs(path);
+  ofs << content;
+}
+
+void replace_function_call(const std::string &filename,
+                           const std::string &old_func,
+                           const std::string &new_func) {}
+
+// 主函数
+int main(int argc, char **argv) {
+  if (argc < 2) {
+    std::cerr << "Usage: " << argv[0] << " project\n";
+    return 1;
+  }
+
+  const auto project_root = std::filesystem::path(argv[1]);
+
+  SourceContext ctx;
+  ctx.project = project_root.filename();
+
+  for (const auto &secure_func_file :
+       std::filesystem::directory_iterator(project_root / "enclave")) {
+    const auto secure_func_filepath = secure_func_file.path();
+
+    parse_file(secure_func_filepath.c_str());
+
+    ctx.src = secure_func_filepath.stem().string();
+    ctx.src_content = read_file_content(secure_func_filepath);
+    // ctx.template_filename = e.path().filename().string();
+    ctx.ret = func_list[func_list.size() - 1].returnType;
+    ctx.func_name = func_list[func_list.size() - 1].name;
+    ctx.params = get_params(func_list[0].parameters);
+    ctx.param_names = get_param_names(func_list[0].parameters);
+
+    for (const auto &e :
+         std::filesystem::directory_iterator("template/secure_func_template")) {
+      std::ifstream ifs(e.path());
+
+      parse_template(ifs, ctx);
+    }
+  }
+
+  std::stringstream interfaces;
+  for (const auto &func : func_list) {
+    interfaces << "public " << func.returnType << " " << func.name << "_impl("
+               << get_params(func.parameters) << ");\n";
+  }
+  ctx.interfaces = interfaces.str();
+
+  for (const auto &e :
+       std::filesystem::directory_iterator("template/project_template")) {
+    std::ifstream ifs(e.path());
+
+    parse_template(ifs, ctx);
+  }
+  const auto generated_host = std::filesystem::path("generated/host");
+
+  for (const auto &f :
+       std::filesystem::directory_iterator(project_root / "host")) {
+    std::filesystem::copy_options op;
+    op |= std::filesystem::copy_options::overwrite_existing;
+    std::filesystem::copy_file(f.path(), generated_host / f.path().filename(),
+                               op);
+  }
   return 0;
 }

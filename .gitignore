@@ -2,3 +2,6 @@ build
 .vscode
 .idea
 .cache
+generated
+json.hpp
+*.gz
