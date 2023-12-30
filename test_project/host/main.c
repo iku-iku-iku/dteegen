@@ -1,4 +1,8 @@
-#include "add.h"
+#include "hello.h"
 #include <stdio.h>
 
-int main() { printf("The result is %d\n", add(1, 2, 3)); }
+int main() {
+  char buf[32];
+  get_string(buf);
+  printf("The result is %s\n", buf);
+}

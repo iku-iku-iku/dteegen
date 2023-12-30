@@ -1,3 +1,4 @@
+#include "CLI11.hpp"
 #include "clang-c/CXString.h"
 #include <cassert>
 #include <clang-c/Index.h>
@@ -9,18 +10,30 @@
 #include <string>
 #include <vector>
 
+#define ASSERT(x, msg)                                                         \
+  if (!(x)) {                                                                  \
+    std::cerr << msg << std::endl;                                             \
+    exit(-1);                                                                  \
+  }
+
 struct Param {
   std::string type;
   std::string name;
+  int array_size;
 };
 
-template <bool WithParam>
+template <bool WithParam, bool IsEDL>
 std::string get_params_str(const std::vector<Param> &params) {
   std::stringstream ss;
   bool flag = false;
-  for (const auto &[type, name] : params) {
+  for (const auto &[type, name, array_size] : params) {
     if (flag) {
       ss << ", ";
+    }
+    if constexpr (IsEDL) {
+      if (array_size >= 0) {
+        ss << "[in, out, size=" << array_size << "] ";
+      }
     }
     if constexpr (WithParam) {
       ss << type << " " << name;
@@ -33,11 +46,15 @@ std::string get_params_str(const std::vector<Param> &params) {
 }
 
 std::string get_params(const std::vector<Param> &params) {
-  return get_params_str<true>(params);
+  return get_params_str<true, false>(params);
 }
 
 std::string get_param_names(const std::vector<Param> &params) {
-  return get_params_str<false>(params);
+  return get_params_str<false, false>(params);
+}
+
+std::string get_edl_params(const std::vector<Param> &params) {
+  return get_params_str<true, true>(params);
 }
 
 struct FunctionInfo {
@@ -49,27 +66,28 @@ struct FunctionInfo {
 
 std::vector<FunctionInfo> func_list;
 
-std::string getCursorSpelling(CXCursor cursor) {
+std::string getCursorSpelling(const CXCursor &cursor) {
   CXString cxStr = clang_getCursorSpelling(cursor);
   std::string str = clang_getCString(cxStr);
   clang_disposeString(cxStr);
   return str;
 }
 
-std::string getCursorType(CXCursor cursor) {
-  CXType type = clang_getCursorType(cursor);
+std::string getTypeSpelling(const CXType &type) {
   CXString cxStr = clang_getTypeSpelling(type);
   std::string str = clang_getCString(cxStr);
   clang_disposeString(cxStr);
   return str;
 }
 
+std::string getCursorType(const CXCursor &cursor) {
+  CXType type = clang_getCursorType(cursor);
+  return getTypeSpelling(type);
+}
+
 std::string getFunctionReturnType(CXCursor cursor) {
   CXType returnType = clang_getResultType(clang_getCursorType(cursor));
-  CXString returnSpelling = clang_getTypeSpelling(returnType);
-  std::string str = clang_getCString(returnSpelling);
-  clang_disposeString(returnSpelling);
-  return str;
+  return getTypeSpelling(returnType);
 }
 
 std::vector<Param> getFunctionParameters(CXCursor cursor) {
@@ -77,7 +95,22 @@ std::vector<Param> getFunctionParameters(CXCursor cursor) {
   int numArgs = clang_Cursor_getNumArguments(cursor);
   for (int i = 0; i < numArgs; ++i) {
     CXCursor arg = clang_Cursor_getArgument(cursor, i);
-    parameters.push_back({getCursorType(arg), getCursorSpelling(arg)});
+
+    const auto type = clang_getCursorType(arg);
+    ASSERT(type.kind != CXType_Pointer,
+           "In your secure function, please use constant array (e.g. char "
+           "arr[32]) instead of pointer "
+           "(e.g. char *arr or char arr[])");
+
+    Param param = {.type = getCursorType(arg),
+                   .name = getCursorSpelling(arg),
+                   .array_size = -1};
+    if (type.kind == CXType_ConstantArray) {
+      param.array_size = clang_getArraySize(type);
+      CXType pointee_type = clang_getArrayElementType(type);
+      param.type = getTypeSpelling(pointee_type) + "*";
+    }
+    parameters.push_back(std::move(param));
   }
   return parameters;
 }
@@ -141,11 +174,11 @@ std::string getFunctionBody(CXCursor cursor) {
 
 CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
                            CXClientData clientData) {
-  /* auto spell = clang_getCursorKindSpelling(clang_getCursorKind(cursor)); */
-  /* std::cout << clang_getCString(spell) << std::endl; */
-  /* clang_disposeString(spell); */
-  /**/
-  if (clang_getCursorKind(cursor) == CXCursor_FunctionDecl) {
+  auto kind = clang_getCursorKind(cursor);
+  if (clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0) {
+    return CXChildVisit_Continue;
+  }
+  if (kind == CXCursor_FunctionDecl) {
     FunctionInfo funcInfo;
     funcInfo.name = getCursorSpelling(cursor);
     funcInfo.returnType = getFunctionReturnType(cursor);
@@ -228,7 +261,7 @@ std::string read_file_content(const std::string &filename) {
   return ss.str();
 }
 
-void parse_template(std::ifstream &ifs, const SourceContext &ctx) {
+void process_template(std::ifstream &ifs, const SourceContext &ctx) {
   const auto filepath = get_filepath(ifs, ctx);
   const auto content = get_content(ifs, ctx);
 
@@ -239,18 +272,14 @@ void parse_template(std::ifstream &ifs, const SourceContext &ctx) {
   ofs << content;
 }
 
-void replace_function_call(const std::string &filename,
-                           const std::string &old_func,
-                           const std::string &new_func) {}
+void generate_secgear(const std::filesystem::path project_root) {
 
-// 主函数
-int main(int argc, char **argv) {
-  if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " project\n";
-    return 1;
+  std::filesystem::path generated_path("generated");
+
+  // remove generated first
+  if (std::filesystem::exists(generated_path)) {
+    std::filesystem::remove_all(generated_path);
   }
-
-  const auto project_root = std::filesystem::path(argv[1]);
 
   SourceContext ctx;
   ctx.project = project_root.filename();
@@ -273,14 +302,14 @@ int main(int argc, char **argv) {
          std::filesystem::directory_iterator("template/secure_func_template")) {
       std::ifstream ifs(e.path());
 
-      parse_template(ifs, ctx);
+      process_template(ifs, ctx);
     }
   }
 
   std::stringstream interfaces;
   for (const auto &func : func_list) {
     interfaces << "public " << func.returnType << " " << func.name << "_impl("
-               << get_params(func.parameters) << ");\n";
+               << get_edl_params(func.parameters) << ");\n";
   }
   ctx.interfaces = interfaces.str();
 
@@ -288,10 +317,11 @@ int main(int argc, char **argv) {
        std::filesystem::directory_iterator("template/project_template")) {
     std::ifstream ifs(e.path());
 
-    parse_template(ifs, ctx);
+    process_template(ifs, ctx);
   }
   const auto generated_host = std::filesystem::path("generated/host");
 
+  // copy host
   for (const auto &f :
        std::filesystem::directory_iterator(project_root / "host")) {
     std::filesystem::copy_options op;
@@ -299,5 +329,14 @@ int main(int argc, char **argv) {
     std::filesystem::copy_file(f.path(), generated_host / f.path().filename(),
                                op);
   }
+}
+
+// 主函数
+int main(int argc, char **argv) {
+  if (argc < 2) {
+    std::cerr << "Usage: " << argv[0] << " project\n";
+    return 1;
+  }
+  generate_secgear(argv[1]);
   return 0;
 }

@@ -15,7 +15,7 @@ set(PREFIX ${project})
 set(OUTPUT secgear_${project})
 #set host ${src} code
 #set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
-file(GLOB SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
+file(GLOB_RECURSE SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
 #set auto code
 if(CC_GP)
