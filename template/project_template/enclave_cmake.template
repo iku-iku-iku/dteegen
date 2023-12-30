@@ -23,7 +23,7 @@ file(GLOB SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 #set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
 
 #set log level
-set(PRINT_LEVEL 3)
+set(PRINT_LEVEL 0)
 add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
 
 if(CC_GP)

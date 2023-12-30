@@ -1,0 +1,61 @@
+path: host/z_enclave_env_con_dec.c
+#include "${project}_u.h"
+#include "enclave.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <linux/limits.h>
+cc_enclave_t *g_enclave_context;
+
+void z_create_enclave() {
+  cc_enclave_result_t res = CC_FAIL;
+
+  char *path = PATH;
+
+  char real_p[PATH_MAX];
+  /* check file exists, if not exist then use absolute path */
+  if (realpath(path, real_p) == NULL) {
+    if (getcwd(real_p, sizeof(real_p)) == NULL) {
+      printf("Cannot find enclave.sign.so");
+      goto end;
+    }
+    if (PATH_MAX - strlen(real_p) <= strlen("/enclave.signed.so")) {
+      printf("Failed to strcat enclave.sign.so path");
+      goto end;
+    }
+    (void)strcat(real_p, "/enclave.signed.so");
+  }
+
+  res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG,
+                          NULL, 0, g_enclave_context);
+  if (res != CC_SUCCESS) {
+    printf("Create enclave error\n");
+    goto end;
+  }
+
+  return;
+
+end:
+  free(g_enclave_context);
+  exit(-1);
+}
+
+void z_destroy_enclave() {
+  cc_enclave_result_t res = cc_enclave_destroy(g_enclave_context);
+  if (res != CC_SUCCESS) {
+    printf("Destroy enclave error\n");
+  }
+}
+
+__attribute__((constructor)) void before_main() {
+  g_enclave_context = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
+  if (!g_enclave_context) {
+    //return CC_ERROR_OUT_OF_MEMORY;
+    return;
+  }
+  //z_create_enclave();
+}
+
+__attribute__((destructor)) void after_main() {
+  //z_destroy_enclave();
+}

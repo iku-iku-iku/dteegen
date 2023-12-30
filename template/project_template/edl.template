@@ -12,8 +12,9 @@ path: ${project}.edl
  */
 
 enclave {
+    include "stdbool.h"
     include "secgear_urts.h"
-    from "secgear_tstdc.edl" import *;
+    from "secgear_tstdc.edl" import *; 
     trusted {
         ${interfaces}
     };

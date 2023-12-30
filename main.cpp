@@ -248,8 +248,37 @@ std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
   assert(ifs);
   std::string line;
   std::stringstream ss;
+  bool multi_template = false;
+  std::vector<std::string> lines;
   while (std::getline(ifs, line)) {
-    ss << parse_template(line, ctx) << std::endl;
+    if (line.find("**begin**") != std::string::npos) {
+      multi_template = true;
+      continue;
+    } else if (line.find("**end**") != std::string::npos) {
+      multi_template = false;
+
+      SourceContext each_ctx = ctx;
+
+      for (const auto &func : func_list) {
+        each_ctx.func_name = func.name;
+        each_ctx.params = get_params(func.parameters);
+        each_ctx.param_names = get_param_names(func.parameters);
+        each_ctx.ret = func.returnType;
+
+        for (const auto &line : lines) {
+          ss << parse_template(line, each_ctx) << std::endl;
+        }
+      }
+
+      lines.clear();
+
+      continue;
+    }
+    if (multi_template) {
+      lines.push_back(std::move(line));
+    } else {
+      ss << parse_template(std::move(line), ctx) << std::endl;
+    }
   }
   return ss.str();
 }

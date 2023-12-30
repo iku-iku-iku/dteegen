@@ -6,52 +6,25 @@ path: host/${src}.c
 #include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
+extern cc_enclave_t *g_enclave_context;
+extern void z_create_enclave();
+extern void z_destroy_enclave();
+
+**begin**
 ${ret} ${func_name}(${params}) {
   ${ret} retval;
-  char *path = PATH;
-  cc_enclave_t *context = NULL;
-  context = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
-  if (!context) {
-    return CC_ERROR_OUT_OF_MEMORY;
-  }
-  cc_enclave_result_t res = CC_FAIL;
 
-  char real_p[PATH_MAX];
-  /* check file exists, if not exist then use absolute path */
-  if (realpath(path, real_p) == NULL) {
-    if (getcwd(real_p, sizeof(real_p)) == NULL) {
-      printf("Cannot find enclave.sign.so");
-      goto end;
-    }
-    if (PATH_MAX - strlen(real_p) <= strlen("/enclave.signed.so")) {
-      printf("Failed to strcat enclave.sign.so path");
-      goto end;
-    }
-    (void)strcat(real_p, "/enclave.signed.so");
-  }
+  z_create_enclave();
 
-  res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG,
-                          NULL, 0, context);
-  if (res != CC_SUCCESS) {
-    printf("Create enclave error\n");
-    goto end;
-  }
-
-  res = ${func_name}_impl(context, &retval, ${param_names});
+  cc_enclave_result_t res = ${func_name}_impl(g_enclave_context, &retval, ${param_names});
   if (res != CC_SUCCESS) {
     printf("Ecall enclave error\n");
-    goto end;
+    exit(-1);
   } 
 
-  res = cc_enclave_destroy(context);
-  if (res != CC_SUCCESS) {
-    printf("Destroy enclave error\n");
-  }
+  z_destroy_enclave();
 
   return retval;
-end:
-  free(context);
-  return res;
 }
+**end**
