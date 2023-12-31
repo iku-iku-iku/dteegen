@@ -1,4 +1,4 @@
-path: enclave/${src}.c
+path: enclave/${src_path}
 #include "${project}_t.h"
 **begin**
 #define ${func_name} __secure_${func_name}_impl

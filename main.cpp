@@ -161,6 +161,9 @@ std::string getFunctionBody(CXCursor cursor) {
       },
       &bodyCursor);
   // 获取函数体的范围
+  if (bodyCursor.kind == CXCursor_InvalidCode) {
+    return "";
+  }
   CXSourceRange range = clang_getCursorExtent(bodyCursor);
   CXSourceLocation startLoc = clang_getRangeStart(range);
   CXSourceLocation endLoc = clang_getRangeEnd(range);
@@ -196,7 +199,9 @@ CXChildVisitResult secure_file_visitor(CXCursor cursor, CXCursor parent,
       funcInfo.returnType = getFunctionReturnType(cursor);
       funcInfo.parameters = getFunctionParameters(cursor);
       funcInfo.body = getFunctionBody(cursor);
-      func_list_each_file.push_back(std::move(funcInfo));
+      if (!funcInfo.body.empty()) {
+        func_list_each_file.push_back(std::move(funcInfo));
+      }
     }
   }
   return CXChildVisit_Recurse;
@@ -247,13 +252,15 @@ struct SourceContext {
   std::string param_names;
   std::string edl_params;
   std::string func_name;
-  std::string interfaces;
+  std::string root_cmake;
+  std::string src_path;
 };
 
 std::vector<std::pair<std::regex, decltype(&SourceContext::src)>> replaces{
     PATTERN(src),        PATTERN(src_content), PATTERN(ret),
     PATTERN(params),     PATTERN(func_name),   PATTERN(param_names),
-    PATTERN(interfaces), PATTERN(project),     PATTERN(edl_params)};
+    PATTERN(root_cmake), PATTERN(project),     PATTERN(edl_params),
+    PATTERN(src_path)};
 
 std::string parse_template(std::string templ, const SourceContext &ctx) {
   std::string res = std::move(templ);
@@ -352,7 +359,10 @@ void generate_secgear(const std::filesystem::path project_root) {
   ctx.project = project_root.filename();
 
   for (const auto &insecure_file :
-       std::filesystem::directory_iterator(project_root / INSECURE)) {
+       std::filesystem::recursive_directory_iterator(project_root / INSECURE)) {
+    if (insecure_file.is_directory()) {
+      continue;
+    }
     parse_file(insecure_file.path().c_str(), insecure_file_visitor, nullptr);
   }
 
@@ -360,12 +370,31 @@ void generate_secgear(const std::filesystem::path project_root) {
     std::cout << func << std::endl;
   }
 
+  const auto secure_root = project_root / SECURE;
+
   for (const auto &secure_func_file :
-       std::filesystem::directory_iterator(project_root / SECURE)) {
+       std::filesystem::recursive_directory_iterator(secure_root)) {
+    if (secure_func_file.is_directory()) {
+      continue;
+    }
+
     const auto secure_func_filepath = secure_func_file.path();
 
     parse_file(secure_func_filepath.c_str(), secure_file_visitor, nullptr);
 
+    // not contain definition of secure func
+    if (func_list_each_file.empty()) {
+      const auto new_path =
+          std::filesystem::path("generated") / ENCLAVE /
+          (secure_func_filepath.lexically_relative(project_root));
+      std::filesystem::create_directories(new_path.parent_path());
+      std::filesystem::copy_file(
+          secure_func_filepath, new_path,
+          std::filesystem::copy_options::overwrite_existing);
+      continue;
+    }
+
+    ctx.src_path = secure_func_filepath.lexically_relative(project_root);
     ctx.src = secure_func_filepath.stem().string();
     ctx.src_content = read_file_content(secure_func_filepath);
     // ctx.template_filename = e.path().filename().string();
@@ -374,8 +403,11 @@ void generate_secgear(const std::filesystem::path project_root) {
     /* ctx.params = get_params(func_list[0].parameters); */
     /* ctx.param_names = get_param_names(func_list[0].parameters); */
 
-    for (const auto &e :
-         std::filesystem::directory_iterator("template/secure_func_template")) {
+    for (const auto &e : std::filesystem::recursive_directory_iterator(
+             "template/secure_func_template")) {
+      if (e.is_directory()) {
+        continue;
+      }
       std::ifstream ifs(e.path());
 
       process_template(ifs, ctx);
@@ -387,28 +419,64 @@ void generate_secgear(const std::filesystem::path project_root) {
     func_list_each_file.clear();
   }
 
-  std::stringstream interfaces;
-  for (const auto &func : func_list) {
-    interfaces << "public " << func.returnType << " " << func.name << "_impl("
-               << get_edl_params(func.parameters) << ");\n";
+  const auto root_cmake_path = project_root / "CMakeLists.txt";
+  if (std::filesystem::exists(root_cmake_path)) {
+    ctx.root_cmake = read_file_content(root_cmake_path);
   }
-  ctx.interfaces = interfaces.str();
 
-  for (const auto &e :
-       std::filesystem::directory_iterator("template/project_template")) {
+  for (const auto &e : std::filesystem::recursive_directory_iterator(
+           "template/project_template")) {
+    if (e.is_directory()) {
+      continue;
+    }
+
     std::ifstream ifs(e.path());
 
     process_template(ifs, ctx);
   }
   const auto generated_host = std::filesystem::path("generated") / HOST;
 
-  // copy host
-  for (const auto &f :
-       std::filesystem::directory_iterator(project_root / INSECURE)) {
+  // copy to host
+  for (const auto &f : std::filesystem::directory_iterator(project_root)) {
+    if (f.is_directory()) {
+      continue;
+    }
+    const auto new_path =
+        generated_host / f.path().lexically_relative(project_root);
     std::filesystem::copy_options op;
-    op |= std::filesystem::copy_options::overwrite_existing;
-    std::filesystem::copy_file(f.path(), generated_host / f.path().filename(),
-                               op);
+    op |= std::filesystem::copy_options::skip_existing;
+    std::filesystem::copy_file(f.path(), new_path, op);
+  }
+
+  for (const auto &f :
+       std::filesystem::recursive_directory_iterator(project_root / SECURE)) {
+    if (f.is_directory()) {
+      continue;
+    }
+    const auto new_path =
+        generated_host / f.path().lexically_relative(project_root);
+    std::filesystem::create_directories(new_path.parent_path());
+    std::filesystem::copy_options op;
+    op |= std::filesystem::copy_options::skip_existing;
+    std::filesystem::copy_file(f.path(), new_path, op);
+  }
+
+  for (const auto &f :
+       std::filesystem::recursive_directory_iterator(project_root / INSECURE)) {
+    if (f.is_directory()) {
+      continue;
+    }
+    const auto new_path =
+        generated_host / f.path().lexically_relative(project_root);
+    std::filesystem::create_directories(new_path.parent_path());
+    std::filesystem::copy_options op;
+    op |= std::filesystem::copy_options::skip_existing;
+    std::filesystem::copy_file(f.path(), new_path, op);
+  }
+
+  // copy enclave
+  for (const auto &f :
+       std::filesystem::recursive_directory_iterator(project_root / SECURE)) {
   }
 }
 

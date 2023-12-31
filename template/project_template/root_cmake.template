@@ -8,7 +8,6 @@ path: CMakeLists.txt
 # IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
-
 project(${project} C)
 
 set(CMAKE_C_STANDARD 99)

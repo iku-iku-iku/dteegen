@@ -18,9 +18,33 @@ set(PEM Enclave_private.pem)
 #set sign tool
 set(SIGN_TOOL ${LOCAL_ROOT_PATH}/tools/sign_tool/sign_tool.sh)
 
-file(GLOB SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
+file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 #set enclave src code
 #set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
+set(INC_DIRS "" CACHE INTERNAL "Include directories")
+
+function(add_include_directories_recursively root_dir)
+    if(IS_DIRECTORY ${root_dir})
+        set(local_inc_dirs ${root_dir}) # 创建一个本地变量
+        file(GLOB sub_dirs LIST_DIRECTORIES true RELATIVE ${root_dir} ${root_dir}/*)
+        foreach(sub_dir IN LISTS sub_dirs)
+            if(IS_DIRECTORY ${root_dir}/${sub_dir} AND NOT ${sub_dir} STREQUAL ".." AND NOT ${sub_dir} STREQUAL ".")
+                add_include_directories_recursively(${root_dir}/${sub_dir})
+                list(APPEND local_inc_dirs ${INC_DIRS}) # 将子调用的结果添加到本地变量
+            endif()
+        endforeach()
+        set(INC_DIRS ${local_inc_dirs} PARENT_SCOPE) # 更新父作用域的变量
+    endif()
+endfunction()
+
+add_include_directories_recursively("${CMAKE_CURRENT_SOURCE_DIR}")
+
+set(COMPILER_INCLUDES "")
+foreach(dir IN LISTS INC_DIRS)
+    list(APPEND COMPILER_INCLUDES "-I${dir}")
+endforeach()
+string(REPLACE ";" "\t" COMPILER_INCLUDES "${COMPILER_INCLUDES}")
+message(STATUS "INC_DIRS: ${COMPILER_INCLUDES}")
 
 #set log level
 set(PRINT_LEVEL 0)
@@ -185,7 +209,7 @@ if(CC_PL)
     add_custom_command(
             OUTPUT ${SOURCE_OBJ}
             DEPENDS ${SOURCE_FILES}
-            COMMAND gcc -Wall -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
+            COMMAND gcc -Wall ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
                 -I${LOCAL_ROOT_PATH}/inc/host_inc -I${LOCAL_ROOT_PATH}/inc/host_inc/penglai -I${LOCAL_ROOT_PATH}/inc/enclave_inc
                 -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${SOURCE_OBJ} ${SOURCE_FILE}
             COMMENT "generate SOURCE_OBJ"
@@ -197,7 +221,7 @@ if(CC_PL)
   add_custom_command(
         OUTPUT ${APP_C_OBJ}
         DEPENDS ${AUTO_FILES}
-        COMMAND gcc -Wall -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
+        COMMAND gcc -Wall ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
             -I${LOCAL_ROOT_PATH}/inc/host_inc -I${LOCAL_ROOT_PATH}/inc/host_inc/penglai -I${LOCAL_ROOT_PATH}/inc/enclave_inc
             -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${APP_C_OBJ} ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c
         COMMENT "generate APP_C_OBJ"

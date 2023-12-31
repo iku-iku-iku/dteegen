@@ -8,11 +8,13 @@ path: host/CMakeLists.txt
 # IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
+${root_cmake}
 
 #set auto code prefix
 set(PREFIX ${project})
 #set host exec name
-set(OUTPUT secgear_${project})
+#set(OUTPUT secgear_${project})
+set(OUTPUT ${project})
 #set host ${src} code
 #set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
 file(GLOB_RECURSE SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
@@ -46,7 +48,7 @@ if(CC_GP)
   if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
     link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
   endif()
-  add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+  #add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
   target_include_directories(${OUTPUT} PRIVATE
             ${CMAKE_BINARY_DIR}/inc
             ${LOCAL_ROOT_PATH}/inc/host_inc
@@ -61,7 +63,7 @@ if(CC_SGX)
   if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
     link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
   endif()
-  add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+  #add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
   target_include_directories(${OUTPUT} PRIVATE
    ${LOCAL_ROOT_PATH}/inc/host_inc
    ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
@@ -71,11 +73,17 @@ if(CC_SGX)
   endif()
 endif()
 
+add_library(__z_auto_lib ${AUTO_FILES})
+  target_include_directories(__z_auto_lib PRIVATE
+   ${LOCAL_ROOT_PATH}/inc/host_inc
+   ${LOCAL_ROOT_PATH}/inc/host_inc/penglai
+   ${CMAKE_CURRENT_BINARY_DIR})
+
 if(CC_PL)
   if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
     link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
   endif()
-  add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+  #add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
   target_include_directories(${OUTPUT} PRIVATE
    ${LOCAL_ROOT_PATH}/inc/host_inc
    ${LOCAL_ROOT_PATH}/inc/host_inc/penglai
@@ -83,6 +91,7 @@ if(CC_PL)
   if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
     target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
   endif()
+  target_link_libraries(${OUTPUT} __z_auto_lib)
 endif()
 
 if(CC_SIM)
