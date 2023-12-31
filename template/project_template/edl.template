@@ -16,6 +16,8 @@ enclave {
     include "secgear_urts.h"
     from "secgear_tstdc.edl" import *; 
     trusted {
-        ${interfaces}
+**gbegin**
+        public ${ret} __secure_${func_name}_impl(${edl_params});
+**end**
     };
 };

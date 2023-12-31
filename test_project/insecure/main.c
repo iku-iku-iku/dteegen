@@ -1,3 +1,4 @@
+#include "add.h"
 #include "hello.h"
 #include <stdio.h>
 
@@ -6,7 +7,7 @@ int main() {
   get_string1(buf);
   printf("The result is %s\n", buf);
 
-  printf("1 + 1 = %d\n", add(1, 1));
+  printf("add(3, 4) = %d\n", add(3, 4));
 
   get_string2(buf);
   printf("The result is %s\n", buf);

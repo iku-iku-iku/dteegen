@@ -17,7 +17,7 @@ ${ret} ${func_name}(${params}) {
 
   z_create_enclave();
 
-  cc_enclave_result_t res = ${func_name}_impl(g_enclave_context, &retval, ${param_names});
+  cc_enclave_result_t res = __secure_${func_name}_impl(g_enclave_context, &retval, ${param_names});
   if (res != CC_SUCCESS) {
     printf("Ecall enclave error\n");
     exit(-1);

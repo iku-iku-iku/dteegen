@@ -70,6 +70,7 @@ struct FunctionInfo {
   std::string body;
 };
 
+std::vector<FunctionInfo> func_list_each_file;
 std::vector<FunctionInfo> func_list;
 std::unordered_set<std::string> func_call_list;
 
@@ -195,7 +196,7 @@ CXChildVisitResult secure_file_visitor(CXCursor cursor, CXCursor parent,
       funcInfo.returnType = getFunctionReturnType(cursor);
       funcInfo.parameters = getFunctionParameters(cursor);
       funcInfo.body = getFunctionBody(cursor);
-      func_list.push_back(std::move(funcInfo));
+      func_list_each_file.push_back(std::move(funcInfo));
     }
   }
   return CXChildVisit_Recurse;
@@ -244,6 +245,7 @@ struct SourceContext {
   std::string ret;
   std::string params;
   std::string param_names;
+  std::string edl_params;
   std::string func_name;
   std::string interfaces;
 };
@@ -251,7 +253,7 @@ struct SourceContext {
 std::vector<std::pair<std::regex, decltype(&SourceContext::src)>> replaces{
     PATTERN(src),        PATTERN(src_content), PATTERN(ret),
     PATTERN(params),     PATTERN(func_name),   PATTERN(param_names),
-    PATTERN(interfaces), PATTERN(project)};
+    PATTERN(interfaces), PATTERN(project),     PATTERN(edl_params)};
 
 std::string parse_template(std::string templ, const SourceContext &ctx) {
   std::string res = std::move(templ);
@@ -276,20 +278,27 @@ std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
   std::string line;
   std::stringstream ss;
   bool multi_template = false;
+  bool global = false;
   std::vector<std::string> lines;
   while (std::getline(ifs, line)) {
     if (line.find("**begin**") != std::string::npos) {
       multi_template = true;
       continue;
+    } else if (line.find("**gbegin**") != std::string::npos) {
+      multi_template = true;
+      global = true;
+      continue;
     } else if (line.find("**end**") != std::string::npos) {
-      multi_template = false;
 
       SourceContext each_ctx = ctx;
 
-      for (const auto &func : func_list) {
+      const auto &list = global ? func_list : func_list_each_file;
+
+      for (const auto &func : list) {
         each_ctx.func_name = func.name;
         each_ctx.params = get_params(func.parameters);
         each_ctx.param_names = get_param_names(func.parameters);
+        each_ctx.edl_params = get_edl_params(func.parameters);
         each_ctx.ret = func.returnType;
 
         for (const auto &line : lines) {
@@ -299,6 +308,8 @@ std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
 
       lines.clear();
 
+      multi_template = false;
+      global = false;
       continue;
     }
     if (multi_template) {
@@ -358,10 +369,10 @@ void generate_secgear(const std::filesystem::path project_root) {
     ctx.src = secure_func_filepath.stem().string();
     ctx.src_content = read_file_content(secure_func_filepath);
     // ctx.template_filename = e.path().filename().string();
-    ctx.ret = func_list[func_list.size() - 1].returnType;
-    ctx.func_name = func_list[func_list.size() - 1].name;
-    ctx.params = get_params(func_list[0].parameters);
-    ctx.param_names = get_param_names(func_list[0].parameters);
+    /* ctx.ret = func_list[func_list.size() - 1].returnType; */
+    /* ctx.func_name = func_list[func_list.size() - 1].name; */
+    /* ctx.params = get_params(func_list[0].parameters); */
+    /* ctx.param_names = get_param_names(func_list[0].parameters); */
 
     for (const auto &e :
          std::filesystem::directory_iterator("template/secure_func_template")) {
@@ -369,6 +380,11 @@ void generate_secgear(const std::filesystem::path project_root) {
 
       process_template(ifs, ctx);
     }
+
+    // collect func list from each file
+    func_list.insert(func_list.end(), func_list_each_file.begin(),
+                     func_list_each_file.end());
+    func_list_each_file.clear();
   }
 
   std::stringstream interfaces;

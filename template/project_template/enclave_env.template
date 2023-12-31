@@ -5,6 +5,9 @@ path: host/z_enclave_env_con_dec.c
 #include <string.h>
 #include <stdlib.h>
 #include <linux/limits.h>
+#include <unistd.h>
+
+
 cc_enclave_t *g_enclave_context;
 
 void z_create_enclave() {
