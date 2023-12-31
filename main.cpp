@@ -8,7 +8,13 @@
 #include <regex>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
+
+#define SECURE "secure"
+#define INSECURE "insecure"
+#define ENCLAVE "enclave"
+#define HOST "host"
 
 #define ASSERT(x, msg)                                                         \
   if (!(x)) {                                                                  \
@@ -65,6 +71,7 @@ struct FunctionInfo {
 };
 
 std::vector<FunctionInfo> func_list;
+std::unordered_set<std::string> func_call_list;
 
 std::string getCursorSpelling(const CXCursor &cursor) {
   CXString cxStr = clang_getCursorSpelling(cursor);
@@ -172,24 +179,44 @@ std::string getFunctionBody(CXCursor cursor) {
   return functionBody;
 }
 
-CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
-                           CXClientData clientData) {
-  auto kind = clang_getCursorKind(cursor);
+CXChildVisitResult secure_file_visitor(CXCursor cursor, CXCursor parent,
+                                       CXClientData clientData) {
   if (clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0) {
     return CXChildVisit_Continue;
   }
+
+  auto kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_FunctionDecl) {
-    FunctionInfo funcInfo;
-    funcInfo.name = getCursorSpelling(cursor);
-    funcInfo.returnType = getFunctionReturnType(cursor);
-    funcInfo.parameters = getFunctionParameters(cursor);
-    funcInfo.body = getFunctionBody(cursor);
-    func_list.push_back(std::move(funcInfo));
+    auto func_name = getCursorSpelling(cursor);
+
+    if (func_call_list.count(func_name) != 0) {
+      FunctionInfo funcInfo;
+      funcInfo.name = std::move(func_name);
+      funcInfo.returnType = getFunctionReturnType(cursor);
+      funcInfo.parameters = getFunctionParameters(cursor);
+      funcInfo.body = getFunctionBody(cursor);
+      func_list.push_back(std::move(funcInfo));
+    }
   }
   return CXChildVisit_Recurse;
 }
 
-void parse_file(const char *path) {
+CXChildVisitResult insecure_file_visitor(CXCursor cursor, CXCursor parent,
+                                         CXClientData clientData) {
+  auto kind = clang_getCursorKind(cursor);
+  if (kind == CXCursor_CallExpr) {
+    cursor = clang_getCursorReferenced(cursor);
+    if (clang_getCursorKind(cursor) == CXCursor_FunctionDecl) {
+      func_call_list.insert(getCursorSpelling(cursor));
+    }
+  }
+  return CXChildVisit_Recurse;
+}
+
+using VISITOR = CXChildVisitResult (*)(CXCursor cursor, CXCursor parent,
+                                       CXClientData client_data);
+
+void parse_file(const char *path, VISITOR visitor, void *client_data) {
   CXIndex index = clang_createIndex(0, 0);
   g_filepath = path;
   CXTranslationUnit unit = clang_parseTranslationUnit(
@@ -201,7 +228,7 @@ void parse_file(const char *path) {
   }
 
   CXCursor cursor = clang_getTranslationUnitCursor(unit);
-  clang_visitChildren(cursor, visitor, nullptr);
+  clang_visitChildren(cursor, visitor, client_data);
 
   clang_disposeTranslationUnit(unit);
   clang_disposeIndex(index);
@@ -313,11 +340,20 @@ void generate_secgear(const std::filesystem::path project_root) {
   SourceContext ctx;
   ctx.project = project_root.filename();
 
+  for (const auto &insecure_file :
+       std::filesystem::directory_iterator(project_root / INSECURE)) {
+    parse_file(insecure_file.path().c_str(), insecure_file_visitor, nullptr);
+  }
+
+  for (const auto &func : func_call_list) {
+    std::cout << func << std::endl;
+  }
+
   for (const auto &secure_func_file :
-       std::filesystem::directory_iterator(project_root / "enclave")) {
+       std::filesystem::directory_iterator(project_root / SECURE)) {
     const auto secure_func_filepath = secure_func_file.path();
 
-    parse_file(secure_func_filepath.c_str());
+    parse_file(secure_func_filepath.c_str(), secure_file_visitor, nullptr);
 
     ctx.src = secure_func_filepath.stem().string();
     ctx.src_content = read_file_content(secure_func_filepath);
@@ -348,11 +384,11 @@ void generate_secgear(const std::filesystem::path project_root) {
 
     process_template(ifs, ctx);
   }
-  const auto generated_host = std::filesystem::path("generated/host");
+  const auto generated_host = std::filesystem::path("generated") / HOST;
 
   // copy host
   for (const auto &f :
-       std::filesystem::directory_iterator(project_root / "host")) {
+       std::filesystem::directory_iterator(project_root / INSECURE)) {
     std::filesystem::copy_options op;
     op |= std::filesystem::copy_options::overwrite_existing;
     std::filesystem::copy_file(f.path(), generated_host / f.path().filename(),
