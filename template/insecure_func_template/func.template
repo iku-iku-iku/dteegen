@@ -1,0 +1,5 @@
+path: host/${src_path}
+**begin**
+#define ${func_name} __insecure_${func_name}_impl
+**end**
+${src_content}

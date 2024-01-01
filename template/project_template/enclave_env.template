@@ -1,4 +1,4 @@
-path: host/z_enclave_env_con_dec.c
+path: z_enclave_env_con_dec.c
 #include "${project}_u.h"
 #include "enclave.h"
 #include <stdio.h>

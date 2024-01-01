@@ -20,4 +20,9 @@ enclave {
         public ${ret} __secure_${func_name}_impl(${edl_params});
 **end**
     };
+    untrusted {
+**igbegin**
+        ${ret} __insecure_${func_name}_impl(${edl_params});
+**end**
+    };
 };

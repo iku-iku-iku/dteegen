@@ -1,0 +1,21 @@
+path: enclave/${src_path}
+#include "${project}_t.h"
+#include "enclave.h"
+#include "string.h"
+#include <linux/limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+**begin**
+${ret} ${func_name}(${params}) {
+  ${ret} retval;
+
+  cc_enclave_result_t res = __insecure_${func_name}_impl(&retval, ${param_names});
+  if (res != CC_SUCCESS) {
+    printf("Ecall enclave error\n");
+    exit(-1);
+  }
+
+  return retval;
+}
+**end**

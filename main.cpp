@@ -16,6 +16,8 @@
 #define ENCLAVE "enclave"
 #define HOST "host"
 
+enum class WorldType : uint8_t { SECURE_WORLD, INSECURE_WORLD };
+
 #define ASSERT(x, msg)                                                         \
   if (!(x)) {                                                                  \
     std::cerr << msg << std::endl;                                             \
@@ -71,8 +73,12 @@ struct FunctionInfo {
 };
 
 std::vector<FunctionInfo> func_list_each_file;
-std::vector<FunctionInfo> func_list;
-std::unordered_set<std::string> func_call_list;
+std::vector<FunctionInfo> secure_entry_func_list;
+std::vector<FunctionInfo> insecure_entry_func_list;
+using FuncName = std::string;
+std::unordered_set<FuncName> func_calls_in_insecure_world;
+std::unordered_set<FuncName> func_calls_in_secure_world;
+std::unordered_set<FuncName> func_calls_each_file;
 
 std::string getCursorSpelling(const CXCursor &cursor) {
   CXString cxStr = clang_getCursorSpelling(cursor);
@@ -183,8 +189,9 @@ std::string getFunctionBody(CXCursor cursor) {
   return functionBody;
 }
 
-CXChildVisitResult secure_file_visitor(CXCursor cursor, CXCursor parent,
-                                       CXClientData clientData) {
+template <WorldType world_type_visited>
+CXChildVisitResult func_def_collect_visitor(CXCursor cursor, CXCursor parent,
+                                            CXClientData clientData) {
   if (clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0) {
     return CXChildVisit_Continue;
   }
@@ -193,7 +200,14 @@ CXChildVisitResult secure_file_visitor(CXCursor cursor, CXCursor parent,
   if (kind == CXCursor_FunctionDecl) {
     auto func_name = getCursorSpelling(cursor);
 
-    if (func_call_list.count(func_name) != 0) {
+    bool is_def_valid;
+    if constexpr (world_type_visited == WorldType::SECURE_WORLD) {
+      is_def_valid = func_calls_in_insecure_world.count(func_name) != 0;
+    } else {
+      is_def_valid = func_calls_in_secure_world.count(func_name) != 0;
+    }
+
+    if (is_def_valid) {
       FunctionInfo funcInfo;
       funcInfo.name = std::move(func_name);
       funcInfo.returnType = getFunctionReturnType(cursor);
@@ -207,13 +221,13 @@ CXChildVisitResult secure_file_visitor(CXCursor cursor, CXCursor parent,
   return CXChildVisit_Recurse;
 }
 
-CXChildVisitResult insecure_file_visitor(CXCursor cursor, CXCursor parent,
-                                         CXClientData clientData) {
+CXChildVisitResult func_call_collect_visitor(CXCursor cursor, CXCursor parent,
+                                             CXClientData clientData) {
   auto kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_CallExpr) {
     cursor = clang_getCursorReferenced(cursor);
     if (clang_getCursorKind(cursor) == CXCursor_FunctionDecl) {
-      func_call_list.insert(getCursorSpelling(cursor));
+      func_calls_each_file.insert(getCursorSpelling(cursor));
     }
   }
   return CXChildVisit_Recurse;
@@ -286,6 +300,7 @@ std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
   std::stringstream ss;
   bool multi_template = false;
   bool global = false;
+  bool insecure = false;
   std::vector<std::string> lines;
   while (std::getline(ifs, line)) {
     if (line.find("**begin**") != std::string::npos) {
@@ -295,11 +310,18 @@ std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
       multi_template = true;
       global = true;
       continue;
+    } else if (line.find("**igbegin**") != std::string::npos) {
+      multi_template = true;
+      global = true;
+      insecure = true;
+      continue;
     } else if (line.find("**end**") != std::string::npos) {
 
       SourceContext each_ctx = ctx;
 
-      const auto &list = global ? func_list : func_list_each_file;
+      const auto &list = global ? (insecure ? insecure_entry_func_list
+                                            : secure_entry_func_list)
+                                : func_list_each_file;
 
       for (const auto &func : list) {
         each_ctx.func_name = func.name;
@@ -317,6 +339,7 @@ std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
 
       multi_template = false;
       global = false;
+      insecure = false;
       continue;
     }
     if (multi_template) {
@@ -349,6 +372,10 @@ void process_template(std::ifstream &ifs, const SourceContext &ctx) {
 void generate_secgear(const std::filesystem::path project_root) {
 
   std::filesystem::path generated_path("generated");
+  const auto generated_host = generated_path / HOST;
+  const auto generated_enclave = generated_path / ENCLAVE;
+  const auto secure_root = project_root / SECURE;
+  const auto insecure_root = project_root / INSECURE;
 
   // remove generated first
   if (std::filesystem::exists(generated_path)) {
@@ -359,18 +386,36 @@ void generate_secgear(const std::filesystem::path project_root) {
   ctx.project = project_root.filename();
 
   for (const auto &insecure_file :
-       std::filesystem::recursive_directory_iterator(project_root / INSECURE)) {
+       std::filesystem::recursive_directory_iterator(insecure_root)) {
     if (insecure_file.is_directory()) {
       continue;
     }
-    parse_file(insecure_file.path().c_str(), insecure_file_visitor, nullptr);
+    parse_file(insecure_file.path().c_str(), func_call_collect_visitor,
+               nullptr);
+    func_calls_in_insecure_world.insert(func_calls_each_file.begin(),
+                                        func_calls_each_file.end());
+    func_calls_each_file.clear();
   }
 
-  for (const auto &func : func_call_list) {
+  for (const auto &secure_file :
+       std::filesystem::recursive_directory_iterator(secure_root)) {
+    if (secure_file.is_directory()) {
+      continue;
+    }
+    parse_file(secure_file.path().c_str(), func_call_collect_visitor, nullptr);
+    func_calls_in_secure_world.insert(func_calls_each_file.begin(),
+                                      func_calls_each_file.end());
+    func_calls_each_file.clear();
+  }
+
+  std::cout << "func_calls_in_insecure_world:" << std::endl;
+  for (const auto &func : func_calls_in_insecure_world) {
     std::cout << func << std::endl;
   }
-
-  const auto secure_root = project_root / SECURE;
+  std::cout << "func_calls_in_secure_world:" << std::endl;
+  for (const auto &func : func_calls_in_secure_world) {
+    std::cout << func << std::endl;
+  }
 
   for (const auto &secure_func_file :
        std::filesystem::recursive_directory_iterator(secure_root)) {
@@ -379,8 +424,8 @@ void generate_secgear(const std::filesystem::path project_root) {
     }
 
     const auto secure_func_filepath = secure_func_file.path();
-
-    parse_file(secure_func_filepath.c_str(), secure_file_visitor, nullptr);
+    parse_file(secure_func_filepath.c_str(),
+               func_def_collect_visitor<WorldType::SECURE_WORLD>, nullptr);
 
     // not contain definition of secure func
     if (func_list_each_file.empty()) {
@@ -397,11 +442,6 @@ void generate_secgear(const std::filesystem::path project_root) {
     ctx.src_path = secure_func_filepath.lexically_relative(project_root);
     ctx.src = secure_func_filepath.stem().string();
     ctx.src_content = read_file_content(secure_func_filepath);
-    // ctx.template_filename = e.path().filename().string();
-    /* ctx.ret = func_list[func_list.size() - 1].returnType; */
-    /* ctx.func_name = func_list[func_list.size() - 1].name; */
-    /* ctx.params = get_params(func_list[0].parameters); */
-    /* ctx.param_names = get_param_names(func_list[0].parameters); */
 
     for (const auto &e : std::filesystem::recursive_directory_iterator(
              "template/secure_func_template")) {
@@ -413,9 +453,44 @@ void generate_secgear(const std::filesystem::path project_root) {
       process_template(ifs, ctx);
     }
 
-    // collect func list from each file
-    func_list.insert(func_list.end(), func_list_each_file.begin(),
-                     func_list_each_file.end());
+    secure_entry_func_list.insert(secure_entry_func_list.end(),
+                                  func_list_each_file.begin(),
+                                  func_list_each_file.end());
+    func_list_each_file.clear();
+  }
+
+  for (const auto &insecure_func_file :
+       std::filesystem::recursive_directory_iterator(insecure_root)) {
+    if (insecure_func_file.is_directory()) {
+      continue;
+    }
+
+    const auto insecure_func_filepath = insecure_func_file.path();
+    parse_file(insecure_func_filepath.c_str(),
+               func_def_collect_visitor<WorldType::INSECURE_WORLD>, nullptr);
+
+    // not contain definition of secure func
+    if (func_list_each_file.empty()) {
+      continue;
+    }
+
+    ctx.src_path = insecure_func_filepath.lexically_relative(project_root);
+    ctx.src = insecure_func_filepath.stem().string();
+    ctx.src_content = read_file_content(insecure_func_filepath);
+
+    for (const auto &e : std::filesystem::recursive_directory_iterator(
+             "template/insecure_func_template")) {
+      if (e.is_directory()) {
+        continue;
+      }
+      std::ifstream ifs(e.path());
+
+      process_template(ifs, ctx);
+    }
+
+    insecure_entry_func_list.insert(insecure_entry_func_list.end(),
+                                    func_list_each_file.begin(),
+                                    func_list_each_file.end());
     func_list_each_file.clear();
   }
 
@@ -434,7 +509,6 @@ void generate_secgear(const std::filesystem::path project_root) {
 
     process_template(ifs, ctx);
   }
-  const auto generated_host = std::filesystem::path("generated") / HOST;
 
   // copy to host
   for (const auto &f : std::filesystem::directory_iterator(project_root)) {
@@ -476,7 +550,19 @@ void generate_secgear(const std::filesystem::path project_root) {
 
   // copy enclave
   for (const auto &f :
-       std::filesystem::recursive_directory_iterator(project_root / SECURE)) {
+       std::filesystem::recursive_directory_iterator(project_root / INSECURE)) {
+    if (f.is_directory()) {
+      continue;
+    }
+    if (!(f.path().extension() == ".h")) {
+      continue;
+    }
+    const auto new_path =
+        generated_enclave / f.path().lexically_relative(project_root);
+    std::filesystem::create_directories(new_path.parent_path());
+    std::filesystem::copy_options op;
+    op |= std::filesystem::copy_options::skip_existing;
+    std::filesystem::copy_file(f.path(), new_path, op);
   }
 }
 
