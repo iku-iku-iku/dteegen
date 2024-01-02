@@ -6,7 +6,7 @@
 int get_strlen(const char *str) {
   int len = 0;
   for (; *str; str++) {
-    len++;
+    len = add_one(len);
   }
   return len;
 }
