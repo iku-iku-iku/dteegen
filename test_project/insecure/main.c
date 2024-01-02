@@ -11,4 +11,7 @@ int main() {
 
   get_string2(buf);
   printf("The result is %s\n", buf);
+
+  get_string3(buf);
+  printf("The result is %s\n", buf);
 }

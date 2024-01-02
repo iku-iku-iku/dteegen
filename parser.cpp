@@ -164,14 +164,17 @@ CXChildVisitResult func_def_collect_visitor(const CXCursor &cursor,
       is_def_valid = func_calls_in_secure_world.count(func_name) != 0;
     }
 
-    if (is_def_valid) {
-      FunctionInfo funcInfo;
-      funcInfo.name = std::move(func_name);
-      funcInfo.returnType = getFunctionReturnType(cursor);
-      funcInfo.parameters = getFunctionParameters(cursor);
-      funcInfo.body = getFunctionBody(cursor);
-      if (!funcInfo.body.empty()) {
-        func_list_each_file.push_back(std::move(funcInfo));
+    // insecure world can't call a static secure func in secure world
+    if (CX_SC_Static != clang_Cursor_getStorageClass(cursor)) {
+      if (is_def_valid) {
+        FunctionInfo funcInfo;
+        funcInfo.name = std::move(func_name);
+        funcInfo.returnType = getFunctionReturnType(cursor);
+        funcInfo.parameters = getFunctionParameters(cursor);
+        funcInfo.body = getFunctionBody(cursor);
+        if (!funcInfo.body.empty()) {
+          func_list_each_file.push_back(std::move(funcInfo));
+        }
       }
     }
   }
