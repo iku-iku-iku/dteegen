@@ -14,7 +14,7 @@ message(STATUS "Clang library directories: ${CLANG_LIBRARIES}")
 include_directories(${CLANG_INCLUDEDIR})
 #add_definitions(${CLANG_DEFINITIONS})
 
-set(SOURCE_FILES main.cpp)
+set(SOURCE_FILES main.cpp parser.cpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${CLANG_LIBS})
