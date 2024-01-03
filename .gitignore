@@ -6,3 +6,4 @@ generated
 json.hpp
 CLI11.hpp
 *.gz
+TEE-Capability

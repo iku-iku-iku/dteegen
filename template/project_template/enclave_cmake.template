@@ -18,7 +18,7 @@ set(PEM Enclave_private.pem)
 #set sign tool
 set(SIGN_TOOL ${LOCAL_ROOT_PATH}/tools/sign_tool/sign_tool.sh)
 
-file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
+file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 #set enclave src code
 #set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
 set(INC_DIRS "" CACHE INTERNAL "Include directories")

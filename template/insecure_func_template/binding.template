@@ -6,6 +6,10 @@ path: enclave/${src_path}
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 **begin**
 ${ret} ${func_name}(${params}) {
   ${ret} retval;
@@ -19,3 +23,7 @@ ${ret} ${func_name}(${params}) {
   return retval;
 }
 **end**
+
+#ifdef __cplusplus
+}
+#endif
