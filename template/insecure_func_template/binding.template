@@ -10,6 +10,10 @@ path: enclave/${src_path}
 extern "C" {
 #endif
 
+#ifdef __cplusplus
+}
+#endif
+
 **begin**
 ${ret} ${func_name}(${params}) {
   ${ret} retval;
@@ -23,7 +27,3 @@ ${ret} ${func_name}(${params}) {
   return retval;
 }
 **end**
-
-#ifdef __cplusplus
-}
-#endif

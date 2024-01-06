@@ -2,6 +2,48 @@
 
 #include "fs.h"
 #include "parser.h"
+std::string toLowerCase(const std::string &str) {
+  std::string lowerCaseStr = str;
+  std::transform(lowerCaseStr.begin(), lowerCaseStr.end(), lowerCaseStr.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return lowerCaseStr;
+}
+
+void replaceAddExecutable(const std::string &filename) {
+  std::ifstream fileIn(filename);
+  if (!fileIn.is_open()) {
+    std::cerr << "无法打开文件: " << filename << std::endl;
+    return;
+  }
+
+  std::stringstream buffer;
+  buffer << fileIn.rdbuf();
+  std::string content = buffer.str();
+  fileIn.close();
+
+  // 将整个文件内容转换为小写
+  std::string contentLower = toLowerCase(content);
+
+  // 查找和替换（大小写不敏感）
+  size_t index = 0;
+  std::string searchText = "add_executable";
+  std::string replaceText = "tee_add_executable";
+
+  while ((index = contentLower.find(searchText, index)) != std::string::npos) {
+    content.replace(index, searchText.length(), replaceText);
+    contentLower.replace(index, searchText.length(), replaceText);
+    index += replaceText.length();
+  }
+
+  std::ofstream fileOut(filename);
+  if (!fileOut.is_open()) {
+    std::cerr << "无法写入文件: " << filename << std::endl;
+    return;
+  }
+
+  fileOut << content;
+  fileOut.close();
+}
 
 void generate_secgear(const std::filesystem::path project_root) {
 
@@ -123,6 +165,8 @@ void generate_secgear(const std::filesystem::path project_root) {
 
                                    process_template(ifs, ctx);
                                  });
+
+  replaceAddExecutable("generated/host/CMakeLists.txt");
 
   // copy to host
   for_each_file_in_dir(project_root, [&](const auto &f) {

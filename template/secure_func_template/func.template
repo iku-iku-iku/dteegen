@@ -1,6 +1,16 @@
 path: enclave/${src_path}
 #include "${project}_t.h"
+
 **begin**
 #define ${func_name} __secure_${func_name}_impl
 **end**
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 ${src_content}
+
+#ifdef __cplusplus
+}
+#endif

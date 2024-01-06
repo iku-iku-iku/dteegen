@@ -1,4 +1,6 @@
 #include "pch.h"
+#include "clang-c/CXString.h"
+#include "clang-c/Index.h"
 
 #include "parser.h"
 
@@ -198,6 +200,9 @@ secure_world_func_def_collect_visitor(CXCursor cursor, CXCursor parent,
 CXChildVisitResult func_call_collect_visitor(CXCursor cursor, CXCursor parent,
                                              CXClientData clientData) {
   auto kind = clang_getCursorKind(cursor);
+  if (kind == CXCursor_FunctionDecl) {
+    func_calls_each_file.insert(getCursorSpelling(cursor));
+  }
   if (kind == CXCursor_CallExpr) {
     cursor = clang_getCursorReferenced(cursor);
     if (clang_getCursorKind(cursor) == CXCursor_FunctionDecl) {
@@ -210,8 +215,10 @@ CXChildVisitResult func_call_collect_visitor(CXCursor cursor, CXCursor parent,
 void parse_file(const char *path, VISITOR visitor, void *client_data) {
   CXIndex index = clang_createIndex(0, 0);
   g_filepath = path;
+  const char *args[] = {"-E"};
   CXTranslationUnit unit = clang_parseTranslationUnit(
-      index, path, nullptr, 0, nullptr, 0, CXTranslationUnit_None);
+      index, path, args, sizeof(args) / sizeof(*args), nullptr, 0,
+      CXTranslationUnit_None);
 
   if (unit == nullptr) {
     std::cerr << "Unable to parse translation unit. Quitting.\n";

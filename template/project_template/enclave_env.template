@@ -54,8 +54,10 @@ __attribute__((constructor)) void before_main() {
   g_enclave_context = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
   if (!g_enclave_context) {
     //return CC_ERROR_OUT_OF_MEMORY;
+    printf("Create g_enclave_context error\n");
     return;
   }
+  memset(g_enclave_context, 0, sizeof(*g_enclave_context));
   //z_create_enclave();
 }
 

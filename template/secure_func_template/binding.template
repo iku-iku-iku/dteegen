@@ -14,6 +14,10 @@ extern cc_enclave_t *g_enclave_context;
 extern void z_create_enclave();
 extern void z_destroy_enclave();
 
+#ifdef __cplusplus
+}
+#endif
+
 **begin**
 ${ret} ${func_name}(${params}) {
   ${ret} retval;
@@ -32,6 +36,3 @@ ${ret} ${func_name}(${params}) {
 }
 **end**
 
-#ifdef __cplusplus
-}
-#endif
