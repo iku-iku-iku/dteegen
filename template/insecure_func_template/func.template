@@ -1,14 +1,8 @@
 path: host/${src_path}
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 **begin**
 #define ${func_name} __insecure_${func_name}_impl
 **end**
+
 ${src_content}
 
-#ifdef __cplusplus
-}
-#endif

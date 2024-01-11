@@ -6,4 +6,6 @@ generated
 json.hpp
 CLI11.hpp
 *.gz
+*.zip
 TEE-Capability
+face_recognition

@@ -1,10 +1,27 @@
-FROM ubuntu:latest
+FROM riscv64/ubuntu:20.04
 
+WORKDIR /workspace
+ARG DEBIAN_FRONTEND=noninteractive
+# 安装基本工具
 RUN apt-get update && apt-get install -y \
-    clang \
-    libclang-dev \
+    build-essential \
     cmake \
-    g++
+    git \
+    wget \
+    opam \
+    ocaml-dune \
+    vim \
+    curl
 
-COPY . /usr/src/myapp
-WORKDIR /usr/src/myapp
+COPY secGear.tar.gz /workspace
+RUN tar -zxvf secGear.tar.gz && rm secGear.tar.gz
+
+COPY sdk.zip /workspace
+RUN unzip sdk.zip && mkdir -p /root/dev && mv sdk /root/dev/sdk && rm sdk.zip
+
+RUN mkdir -p /workspace/secGear/debug 
+
+ENV PATH="/workspace/secGear/bin:${PATH}"
+
+CMD ["/bin/bash"]
+

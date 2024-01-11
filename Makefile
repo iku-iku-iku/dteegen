@@ -1,4 +1,4 @@
-.PHONY: all clean deploy generate test_project generate_cpp
+.PHONY: all clean deploy generate test_project generate_cpp build_in_docker
 
 all:
 	bash ./scripts/build_codegen.sh
@@ -18,3 +18,6 @@ deploy:
 
 test_project: 
 	bash ./scripts/build_test_project.sh
+
+build_in_docker:
+	bash ./scripts/build_in_docker.sh
