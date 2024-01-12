@@ -197,9 +197,13 @@ if(CC_PL)
   set(SDK_LIB_DIR ${PLSDK}/lib)
   set(SDK_INCLUDE_DIR ${SDK_LIB_DIR}/app/include)
   set(SDK_APP_LIB ${SDK_LIB_DIR}/libpenglai-enclave-eapp.a)
+  set(MY_MUSL_LIB_DIR /workspace/riscv64-linux-musl/riscv64-linux-musl/lib)
   set(MUSL_LIB_DIR ${PLSDK}/musl/lib)
   set(MUSL_LIBC ${MUSL_LIB_DIR}/libc.a)
-  set(GCC_LIB ${SDK_LIB_DIR}/libgcc.a)
+  set(MUSL_LIBCPP ${MY_MUSL_LIB_DIR}/libstdc++.a)
+  set(CXX g++)
+  set(CC gcc)
+  set(GCC_LIB /workspace/riscv64-linux-musl/lib/gcc/riscv64-linux-musl/9.4.0/libgcc.a)
   set(SECGEAR_TEE_LIB ${CMAKE_BINARY_DIR}/lib/libsecgear_tee.a)
 
   set(SOURCE_C_OBJS "")
@@ -209,7 +213,7 @@ if(CC_PL)
     add_custom_command(
             OUTPUT ${SOURCE_OBJ}
             DEPENDS ${SOURCE_FILES}
-            COMMAND gcc -Wall ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
+            COMMAND ${CXX} -static -fno-use-cxa-atexit -Wall ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
                 -I${LOCAL_ROOT_PATH}/inc/host_inc -I${LOCAL_ROOT_PATH}/inc/host_inc/penglai -I${LOCAL_ROOT_PATH}/inc/enclave_inc
                 -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${SOURCE_OBJ} ${SOURCE_FILE}
             COMMENT "generate SOURCE_OBJ"
@@ -221,7 +225,7 @@ if(CC_PL)
   add_custom_command(
         OUTPUT ${APP_C_OBJ}
         DEPENDS ${AUTO_FILES}
-        COMMAND gcc -Wall ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
+        COMMAND ${CC} -static -Wall ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
             -I${LOCAL_ROOT_PATH}/inc/host_inc -I${LOCAL_ROOT_PATH}/inc/host_inc/penglai -I${LOCAL_ROOT_PATH}/inc/enclave_inc
             -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${APP_C_OBJ} ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c
         COMMENT "generate APP_C_OBJ"
@@ -231,8 +235,8 @@ if(CC_PL)
         OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB}
         COMMAND ld -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lpenglai-enclave-eapp -lsecgear_tee -lc
-            -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${SECGEAR_TEE_LIB}
-            ${MUSL_LIBC} ${GCC_LIB} -T ${PLSDK}/app.lds
+            -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${SECGEAR_TEE_LIB} ${MUSL_LIBCPP} ${GCC_LIB}
+            ${MUSL_LIBC} -T ${PLSDK}/app.lds
         COMMAND chmod -x ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         COMMENT "generate penglai-ELF"
     )

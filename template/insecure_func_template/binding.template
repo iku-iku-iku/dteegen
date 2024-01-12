@@ -2,7 +2,6 @@ path: enclave/${src_path}
 #include "${project}_t.h"
 #include "enclave.h"
 #include "string.h"
-#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 

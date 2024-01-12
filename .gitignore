@@ -9,3 +9,4 @@ CLI11.hpp
 *.zip
 TEE-Capability
 face_recognition
+codegen
