@@ -1,5 +1,5 @@
 #include "../secure/add.h"
-#include "distributed_tee.h"
+#include "TEE-Capability/distributed_tee.h"
 
 int main() {
   auto ctx = init_distributed_tee_context({.side = SIDE::Server});
