@@ -238,7 +238,8 @@ if(CC_PL)
   set(CXX g++)
   # set(CMAKE_C_COMPILER gcc)
   # set(CMAKE_CXX_COMPILER g++)
-  set(GCC_LIB /workspace/riscv64-linux-musl/lib/gcc/riscv64-linux-musl/9.4.0/libgcc.a)
+  # set(GCC_LIB /workspace/riscv64-linux-musl/lib/gcc/riscv64-linux-musl/9.4.0/libgcc.a)
+  set(GCC_LIB ${SDK_LIB_DIR}/libgcc.a)
   set(SECGEAR_TEE_LIB ${CMAKE_BINARY_DIR}/lib/libsecgear_tee.a)
 
   set(SOURCE_C_OBJS "")
@@ -326,9 +327,9 @@ if(CC_PL)
   add_custom_command(
         OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB}
-        COMMAND ld -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lpenglai-enclave-eapp -lsecgear_tee -lc
+        COMMAND ld -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lpenglai-enclave-eapp -lsecgear_tee -lc -lpthread
             -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${SECGEAR_TEE_LIB} ${STATIC_LIBS} ${MUSL_LIBCPP}
-            ${MUSL_LIBC} ${GCC_LIB} ${MUSL_LIBATOMIC} /usr/lib/libjustworkaround.a -T ${PLSDK}/app.lds
+             /usr/lib/libunwind.a ${MUSL_LIBC} ${GCC_LIB} ${MUSL_LIBATOMIC} /usr/lib/libjustworkaround.a -T ${PLSDK}/app.lds
         COMMAND chmod -x ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         COMMENT "generate penglai-ELF"
     )

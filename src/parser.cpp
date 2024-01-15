@@ -8,10 +8,18 @@
   { std::regex("(\\$\\{" #name "\\})"), &SourceContext::name }
 
 std::vector<std::pair<std::regex, decltype(&SourceContext::src)>> replaces{
-    PATTERN(src),         PATTERN(src_content),  PATTERN(ret),
-    PATTERN(params),      PATTERN(comma_params), PATTERN(func_name),
-    PATTERN(param_names), PATTERN(root_cmake),   PATTERN(host_secure_cmake),
-    PATTERN(project),     PATTERN(edl_params),   PATTERN(src_path)};
+    PATTERN(src),
+    PATTERN(src_content),
+    PATTERN(ret),
+    PATTERN(params),
+    PATTERN(comma_params),
+    PATTERN(func_name),
+    PATTERN(comma_param_names),
+    PATTERN(root_cmake),
+    PATTERN(host_secure_cmake),
+    PATTERN(project),
+    PATTERN(edl_params),
+    PATTERN(src_path)};
 
 std::string g_filepath;
 
@@ -47,15 +55,15 @@ std::string get_params_str(const std::vector<Param> &params) {
 }
 
 std::string get_params(const std::vector<Param> &params) {
-  return get_params_str<true, false, true>(params);
+  return get_params_str<true, false, false>(params);
 }
 
 std::string get_comma_params(const std::vector<Param> &params) {
   return get_params_str<true, false, true>(params);
 }
 
-std::string get_param_names(const std::vector<Param> &params) {
-  return get_params_str<false, false, false>(params);
+std::string get_comma_param_names(const std::vector<Param> &params) {
+  return get_params_str<false, false, true>(params);
 }
 
 std::string get_edl_params(const std::vector<Param> &params) {
@@ -307,7 +315,7 @@ std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
         each_ctx.func_name = func.name;
         each_ctx.params = get_params(func.parameters);
         each_ctx.comma_params = get_comma_params(func.parameters);
-        each_ctx.param_names = get_param_names(func.parameters);
+        each_ctx.comma_param_names = get_comma_param_names(func.parameters);
         each_ctx.edl_params = get_edl_params(func.parameters);
         each_ctx.ret = func.returnType;
 

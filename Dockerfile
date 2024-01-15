@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     curl
 
 COPY libjustworkaround.a /usr/lib
+COPY libunwind.a /usr/lib
 
 COPY codegen /usr/bin
 COPY riscv64-linux-musl.tar.gz /workspace

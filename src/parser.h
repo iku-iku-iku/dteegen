@@ -13,7 +13,7 @@ struct SourceContext {
   std::string ret;
   std::string params;
   std::string comma_params;
-  std::string param_names;
+  std::string comma_param_names;
   std::string edl_params;
   std::string func_name;
   std::string root_cmake;
