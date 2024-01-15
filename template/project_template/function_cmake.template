@@ -1,4 +1,4 @@
-path: host/function.cmake
+path: host/insecure/function.cmake
 set(TEE_EXECUTABLE_TARGETS)
 
 function(tee_add_executable target_name)

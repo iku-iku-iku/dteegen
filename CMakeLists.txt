@@ -11,10 +11,10 @@ find_package(LibClang REQUIRED)
 message(STATUS "Clang include directories: ${CLANG_INCLUDE_DIRS}")
 message(STATUS "Clang library directories: ${CLANG_LIBRARIES}")
 
-include_directories(${CLANG_INCLUDEDIR})
+include_directories(${CLANG_INCLUDEDIR} src)
 #add_definitions(${CLANG_DEFINITIONS})
 
-set(SOURCE_FILES main.cpp parser.cpp)
+set(SOURCE_FILES src/main.cpp src/parser.cpp src/pipe/cmake_transform.cpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${CLANG_LIBS})

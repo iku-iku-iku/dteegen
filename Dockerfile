@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     vim \
     curl
 
+COPY libjustworkaround.a /usr/lib
+
 COPY codegen /usr/bin
 COPY riscv64-linux-musl.tar.gz /workspace
 RUN tar -zxvf riscv64-linux-musl.tar.gz && rm riscv64-linux-musl.tar.gz
