@@ -15,6 +15,20 @@ else()
   message(FATAL_ERROR "Target architecture is not supported")
 endif()
 
-file(GLOB_RECURSE STATIC_LIBS "${LIB_DIR}/*.a")
+set(TENSORFLOW_SOURCE_DIR "" CACHE PATH
+  "Directory that contains the TensorFlow project" )
+if(NOT TENSORFLOW_SOURCE_DIR)
+  get_filename_component(TENSORFLOW_SOURCE_DIR
+    "${CMAKE_CURRENT_LIST_DIR}/tensorflow-2.15.0" ABSOLUTE)
+endif()
+
+# add_subdirectory(
+#   "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite"
+#   "${CMAKE_CURRENT_BINARY_DIR}/tensorflow-lite" EXCLUDE_FROM_ALL)
+
+# file(GLOB_RECURSE STATIC_LIBS "${LIB_DIR}/*.a")
+#set(STATIC_LIBS tensorflow-lite)
+set(STATIC_LIBS ${LIB_DIR}/libtensorflow-lite.a)
+#set(STATIC_LIBS ${LIB_DIR}/libtensorflow-lite.a ${LIB_DIR}/libXNNPACK.a)
 set(STATIC_LIBS ${STATIC_LIBS} PARENT_SCOPE)
 message(STATUS "Static libs: ${STATIC_LIBS}")

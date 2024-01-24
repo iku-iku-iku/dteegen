@@ -25,6 +25,8 @@ struct Param {
   std::string type;
   std::string name;
   int array_size;
+  bool is_in;
+  bool is_out;
 };
 
 struct FunctionInfo {

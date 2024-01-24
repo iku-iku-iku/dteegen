@@ -306,7 +306,7 @@ if(CC_PL)
     add_custom_command(
             OUTPUT ${SOURCE_OBJ}
             DEPENDS ${SOURCE_FILES}
-            COMMAND ${CXX} -static -fno-use-cxa-atexit -Wall ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
+            COMMAND ${CXX} -std=c++17 -static -Wall -D__TEE=1 ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
                 -I${LOCAL_ROOT_PATH}/inc/host_inc -I${LOCAL_ROOT_PATH}/inc/host_inc/penglai -I${LOCAL_ROOT_PATH}/inc/enclave_inc
                 -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${SOURCE_OBJ} ${SOURCE_FILE}
             COMMENT "generate SOURCE_OBJ"
@@ -329,7 +329,7 @@ if(CC_PL)
         DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB}
         COMMAND ld -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lpenglai-enclave-eapp -lsecgear_tee -lc -lpthread
             -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${SECGEAR_TEE_LIB} ${STATIC_LIBS} ${MUSL_LIBCPP}
-             /usr/lib/libunwind.a ${MUSL_LIBC} ${GCC_LIB} ${MUSL_LIBATOMIC} /usr/lib/libjustworkaround.a -T ${PLSDK}/app.lds
+             /usr/lib/libunwind.a ${MUSL_LIBC} ${GCC_LIB} ${MUSL_LIBATOMIC} /usr/lib/libjustworkaround.a -T ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds
         COMMAND chmod -x ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         COMMENT "generate penglai-ELF"
     )

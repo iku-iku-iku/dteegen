@@ -1,6 +1,13 @@
 path: host/${src_path}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "${project}_u.h"
 #include "enclave.h"
+#ifdef __cplusplus
+}
+#endif
 #include "string.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,8 +30,8 @@ ${ret} ${func_name}(${params}) {
 
   z_create_enclave();
 
-  cc_enclave_result_t res = __secure_${func_name}_impl(g_enclave_context, &retval ${comma_param_names});
-  if (res != CC_SUCCESS) {
+  cc_enclave_result_t __Z_res = __secure_${func_name}_impl(g_enclave_context, &retval ${comma_param_names});
+  if (__Z_res != CC_SUCCESS) {
     printf("Ecall enclave error\n");
     exit(-1);
   } 

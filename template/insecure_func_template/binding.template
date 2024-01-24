@@ -1,6 +1,12 @@
 path: enclave/${src_path}
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "${project}_t.h"
 #include "enclave.h"
+#ifdef __cplusplus
+}
+#endif
 #include "string.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,8 +23,8 @@ extern "C" {
 ${ret} ${func_name}(${params}) {
   ${ret} retval;
 
-  cc_enclave_result_t res = __insecure_${func_name}_impl(&retval ${comma_param_names});
-  if (res != CC_SUCCESS) {
+  cc_enclave_result_t __Z_res = __insecure_${func_name}_impl(&retval ${comma_param_names});
+  if (__Z_res != CC_SUCCESS) {
     printf("Ecall enclave error\n");
     exit(-1);
   }

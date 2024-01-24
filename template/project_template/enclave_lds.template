@@ -1,12 +1,44 @@
 path: enclave/Enclave.lds
-enclave.so
+OUTPUT_ARCH( "riscv" )
+
+SECTIONS 
 {
-    global:
-        g_global_data_sim;
-        g_global_data;
-        enclave_entry;
-        g_peak_heap_used;
-    local:
-        *;
-};
+  . = 0x00001000;
+  .text : {
+    *(.text._start)
+    *(.text)
+  }
+  . = ALIGN(0x1000);
+  .rodata : 
+  { 
+    *(.rdata)
+    *(.rodata)
+  }
+  .data : { *(.data) }
+  .bss : { 
+    *(.tbss._ZZN12_GLOBAL__N_110get_globalEvE6global)
+    *(.tbss) 
+    *(.bss)
+  }
+  . = ALIGN(0x1000);
+  .debug : { *(.debug) }
+
+  . = ALIGN(0x1000);
+  .brk_area :
+  {
+    __brk_start0 = .;
+    . = . + 4096 * 512 * 2;
+    __brk_end = .;
+  }
+
+  . = ALIGN(0x1000);
+  .mmap_area :
+  {
+    __mmap_start0 = .;
+    . = . + 4096 * 16384 * 2;
+    __mmap_end = .;
+  }
+  _end = .;
+}
+
 

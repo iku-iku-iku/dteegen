@@ -4,6 +4,8 @@
 
 #include "parser.h"
 
+CXTranslationUnit *g_unit;
+
 #define PATTERN(name)                                                          \
   { std::regex("(\\$\\{" #name "\\})"), &SourceContext::name }
 
@@ -29,7 +31,7 @@ std::string get_params_str(const std::vector<Param> &params) {
   bool flag = false;
 
   // if without type, the params will be used after other params
-  for (const auto &[type, name, array_size] : params) {
+  for (const auto &param : params) {
     if constexpr (!WithCommaAhead) {
       if (flag) {
         ss << ", ";
@@ -38,14 +40,21 @@ std::string get_params_str(const std::vector<Param> &params) {
       ss << ", ";
     }
     if constexpr (IsEDL) {
-      if (array_size >= 0) {
-        ss << "[in, out, size=" << array_size << "] ";
+      ASSERT(param.array_size >= 0, "param size < 0");
+      ss << "[";
+      if (param.is_in && !param.is_out) {
+        ss << "in";
+      } else if (!param.is_in && param.is_out) {
+        ss << "out";
+      } else {
+        ss << "in, out";
       }
+      ss << ", size=" << param.array_size << "] ";
     }
     if constexpr (WithType) {
-      ss << type << " " << name;
+      ss << param.type << " " << param.name;
     } else {
-      ss << name;
+      ss << param.name;
     }
     if constexpr (!WithCommaAhead) {
       flag = true;
@@ -105,14 +114,30 @@ std::vector<Param> getFunctionParameters(CXCursor cursor) {
            "In your secure function, please use constant array (e.g. char "
            "arr[32]) instead of pointer "
            "(e.g. char *arr or char arr[])");
+    bool is_in = true, is_out = true;
 
-    Param param = {.type = getCursorType(arg),
+    // TODO: this is just a trick to determine in and out
+    const auto base_type = clang_getArrayElementType(type);
+    const auto base_type_spelling = getTypeSpelling(base_type);
+    if (base_type_spelling == "in_char") {
+      is_out = false;
+    } else if (base_type_spelling == "out_char") {
+      is_in = false;
+    }
+
+    Param param = {.type = getTypeSpelling(type),
                    .name = getCursorSpelling(arg),
-                   .array_size = -1};
+                   .array_size = -1,
+                   .is_in = is_in,
+                   .is_out = is_out};
     if (type.kind == CXType_ConstantArray) {
       param.array_size = clang_getArraySize(type);
       CXType pointee_type = clang_getArrayElementType(type);
-      param.type = getTypeSpelling(pointee_type) + "*";
+      auto pointee = getTypeSpelling(pointee_type);
+      if (pointee == "in_char" || pointee == "out_char") {
+        pointee = "char";
+      }
+      param.type = pointee  + "*";
     }
     parameters.push_back(std::move(param));
   }
@@ -180,11 +205,17 @@ template <WorldType world_type_visited>
 CXChildVisitResult
 entry_func_def_collect_visitor(const CXCursor &cursor, const CXCursor &parent,
                                const CXClientData &clientData) {
+  auto kind = clang_getCursorKind(cursor);
+  /* std::cout << clang_getCString(clang_getCursorKindSpelling(kind)) <<
+   * std::endl; */
+  /* if (kind == CXCursor_MacroExpansion) { */
+  /*   std::cout << "MacroExpansion: " << getCursorSpelling(cursor) <<
+   * std::endl; */
+  /* } */
   if (clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0) {
     return CXChildVisit_Continue;
   }
 
-  auto kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_FunctionDecl) {
     auto func_name = getCursorSpelling(cursor);
 
@@ -247,11 +278,14 @@ CXChildVisitResult func_call_collect_visitor(CXCursor cursor, CXCursor parent,
 void parse_file(const char *path, VISITOR visitor, void *client_data) {
   CXIndex index = clang_createIndex(0, 0);
   g_filepath = path;
-  const char *args[] = {"-E"};
+  const char *args[] = {
+      //   "-E"
+  };
   CXTranslationUnit unit = clang_parseTranslationUnit(
       index, path, args, sizeof(args) / sizeof(*args), nullptr, 0,
       CXTranslationUnit_None);
 
+  g_unit = &unit;
   if (unit == nullptr) {
     std::cerr << "Unable to parse translation unit: " << path << std::endl;
     return;
