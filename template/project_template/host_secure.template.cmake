@@ -80,7 +80,7 @@ if(CC_SGX)
   endif()
 endif()
 
-_addlibrary(__z_auto_lib ${AUTO_FILES} ../../z_enclave_env_con_dec.c)
+_addlibrary(__z_auto_lib ${AUTO_FILES} ../../z_enclave_env_provider.cpp)
   target_include_directories(__z_auto_lib PRIVATE
    ${LOCAL_ROOT_PATH}/inc/host_inc
    ${LOCAL_ROOT_PATH}/inc/host_inc/penglai

@@ -21,6 +21,7 @@ IMAGE_NAME="rv-secgear"
 docker run -v "$TARGET:/workspace/secGear/examples/generated" \
 	-v "$TARGET/build:/workspace/secGear/debug" \
 	-w /workspace/secGear/debug -it $IMAGE_NAME /bin/bash -c "
+    export PATH=/root/.opam/4.12.0/bin:$PATH:/workspace/secGear/debug
     cmake -DCMAKE_BUILD_TYPE=Debug -DENCLAVE=PL -DSDK_PATH=/root/dev/sdk -DSSL_PATH=/root/dev/sdk/penglai_sdk_ssl .. &&
     make && 
     cp -r /workspace/secGear/debug/examples/generated/host/insecure/* /workspace/secGear/examples/generated/build/ &&

@@ -35,7 +35,7 @@ SECTIONS
   .mmap_area :
   {
     __mmap_start0 = .;
-    . = . + 4096 * 16384 * 2;
+    . = . + 1024 * 1024 * 80;
     __mmap_end = .;
   }
   _end = .;

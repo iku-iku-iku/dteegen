@@ -6,6 +6,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
+    # ocaml \
+    # ocaml-dune \
     git \
     unzip \
     wget \
@@ -16,6 +18,12 @@ COPY libjustworkaround.a /usr/lib
 COPY libunwind.a /usr/lib
 
 COPY codegen /usr/bin
+
+# WORKDIR /root
+# COPY opam.tar.gz /root
+# RUN tar -zxvf opam.tar.gz && rm opam.tar.gz
+
+WORKDIR /workspace
 COPY riscv64-linux-musl.tar.gz /workspace
 RUN tar -zxvf riscv64-linux-musl.tar.gz && rm riscv64-linux-musl.tar.gz
 
@@ -37,11 +45,11 @@ RUN tar -zxvf confidential-distributed-softbus.tar.gz && rm confidential-distrib
 WORKDIR confidential-distributed-softbus/build
 RUN make install && cd ../.. && rm -rf /root/confidential-distributed-softbus
 
-WORKDIR /root
-COPY TEE-Capability.tar.gz /root
+WORKDIR /workspace/build_deps
+COPY TEE-Capability.tar.gz /workspace/build_deps
 RUN tar -zxvf TEE-Capability.tar.gz && rm TEE-Capability.tar.gz
 WORKDIR TEE-Capability/build
-RUN make install && cd ../.. && rm -rf /root/TEE-Capability
+RUN make install && cd ../.. && rm -rf /workspace/build_deps/TEE-Capability
 
 WORKDIR /workspace
 

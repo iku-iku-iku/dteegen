@@ -10,7 +10,6 @@ CLI11.hpp
 *.zip
 *.bak
 *.generated
-TEE-Capability
 face_recognition
 codegen
 downloads
@@ -19,3 +18,4 @@ test_riscv
 template_tvm
 opencv-master
 opencv_demo
+secGear

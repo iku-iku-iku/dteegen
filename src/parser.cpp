@@ -40,16 +40,24 @@ std::string get_params_str(const std::vector<Param> &params) {
       ss << ", ";
     }
     if constexpr (IsEDL) {
-      ASSERT(param.array_size >= 0, "param size < 0");
-      ss << "[";
-      if (param.is_in && !param.is_out) {
-        ss << "in";
-      } else if (!param.is_in && param.is_out) {
-        ss << "out";
-      } else {
-        ss << "in, out";
+      if (param.is_array || param.is_ptr) {
+        ss << "[";
+        if (param.is_in && !param.is_out) {
+          ss << "in";
+        } else if (!param.is_in && param.is_out) {
+          ss << "out";
+        } else {
+          ss << "in, out";
+        }
+        ss << ", size=";
+        if (param.is_ptr) {
+          ss << param.name << "_len";
+        } else {
+          ASSERT(param.array_size >= 0, "param size < 0");
+          ss << param.array_size;
+        }
+        ss << "] ";
       }
-      ss << ", size=" << param.array_size << "] ";
     }
     if constexpr (WithType) {
       ss << param.type << " " << param.name;
@@ -104,42 +112,75 @@ std::string getFunctionReturnType(CXCursor cursor) {
 }
 
 std::vector<Param> getFunctionParameters(CXCursor cursor) {
-  std::vector<Param> parameters;
   int numArgs = clang_Cursor_getNumArguments(cursor);
+  std::vector<Param> parameters(numArgs);
+  // check parameters validity
+  static const std::unordered_set<std::string> valid_element_type = {
+      "char", "in_char", "out_char"};
+
+  std::string next_arg_name;
+  for (int i = numArgs - 1; i >= 0; --i) {
+    CXCursor arg = clang_Cursor_getArgument(cursor, i);
+
+    const auto arg_name = getCursorSpelling(arg);
+
+    const CXType type = clang_getCursorType(arg);
+    if (type.kind == CXType_Pointer) {
+      parameters[i].is_ptr = true;
+      ASSERT(i != numArgs - 1, "last parameter can't be a pointer!");
+
+      const CXType ele_type = clang_getPointeeType(type);
+      const auto spell = getTypeSpelling(ele_type);
+      ASSERT(valid_element_type.count(spell) != 0, "Invalid element type: %s",
+             spell.c_str());
+      ASSERT(next_arg_name == arg_name + "_len",
+             "Invalid array length name: %s, should be %s_len",
+             next_arg_name.c_str(), next_arg_name.c_str());
+    } else {
+      parameters[i].is_ptr = false;
+    }
+    next_arg_name = arg_name;
+  }
+
   for (int i = 0; i < numArgs; ++i) {
     CXCursor arg = clang_Cursor_getArgument(cursor, i);
 
     const auto type = clang_getCursorType(arg);
-    ASSERT(type.kind != CXType_Pointer,
-           "In your secure function, please use constant array (e.g. char "
-           "arr[32]) instead of pointer "
-           "(e.g. char *arr or char arr[])");
+    /* ASSERT(type.kind != CXType_Pointer, */
+    /*        "In your secure function, please use constant array (e.g. char "
+     */
+    /*        "arr[32]) instead of pointer " */
+    /*        "(e.g. char *arr or char arr[])"); */
     bool is_in = true, is_out = true;
 
-    // TODO: this is just a trick to determine in and out
-    const auto base_type = clang_getArrayElementType(type);
-    const auto base_type_spelling = getTypeSpelling(base_type);
-    if (base_type_spelling == "in_char") {
-      is_out = false;
-    } else if (base_type_spelling == "out_char") {
-      is_in = false;
-    }
+    auto &p = parameters[i];
+    p.type = getTypeSpelling(type);
+    p.name = getCursorSpelling(arg);
+    p.array_size = -1;
+    p.is_array = type.kind == CXType_ConstantArray;
 
-    Param param = {.type = getTypeSpelling(type),
-                   .name = getCursorSpelling(arg),
-                   .array_size = -1,
-                   .is_in = is_in,
-                   .is_out = is_out};
-    if (type.kind == CXType_ConstantArray) {
-      param.array_size = clang_getArraySize(type);
-      CXType pointee_type = clang_getArrayElementType(type);
+    do {
+      CXType pointee_type;
+      if (p.is_array) {
+        p.array_size = clang_getArraySize(type);
+        pointee_type = clang_getArrayElementType(type);
+      } else if (p.is_ptr) {
+        pointee_type = clang_getPointeeType(type);
+      } else {
+        break;
+      }
+
       auto pointee = getTypeSpelling(pointee_type);
-      if (pointee == "in_char" || pointee == "out_char") {
+
+      // TODO: this is just a trick to determine in and out
+      p.is_in = pointee == "in_char";
+      p.is_out = pointee == "out_char";
+      if (p.is_in || p.is_out) {
         pointee = "char";
       }
-      param.type = pointee  + "*";
-    }
-    parameters.push_back(std::move(param));
+
+      p.type = pointee + "*";
+    } while (0);
   }
   return parameters;
 }

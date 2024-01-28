@@ -27,6 +27,8 @@ struct Param {
   int array_size;
   bool is_in;
   bool is_out;
+  bool is_ptr;
+  bool is_array;
 };
 
 struct FunctionInfo {

@@ -1,4 +1,4 @@
-.PHONY: all clean deploy generate test_project generate_cpp build_in_docker
+.PHONY: all clean deploy generate test_project generate_cpp build_in_docker docker build_compile_deps build_docker
 
 all:
 	bash ./scripts/build_codegen.sh
@@ -21,3 +21,11 @@ test_project:
 
 build_in_docker:
 	bash ./scripts/build_in_docker.sh
+
+build_compile_deps:
+	bash ./scripts/build_compile_deps.sh
+docker:
+	bash ./scripts/update_docker_deps.sh
+	docker build -t rv-secgear .
+build_docker:
+	docker build -t rv-secgear .

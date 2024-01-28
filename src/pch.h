@@ -21,8 +21,8 @@
 
 enum class WorldType : uint8_t { SECURE_WORLD, INSECURE_WORLD };
 
-#define ASSERT(x, msg)                                                         \
+#define ASSERT(x, msg, ...)                                                    \
   if (!(x)) {                                                                  \
-    std::cerr << msg << std::endl;                                             \
+    fprintf(stderr, "Assertion failed: %s, " msg "\n", #x, ##__VA_ARGS__);     \
     exit(-1);                                                                  \
   }

@@ -229,6 +229,7 @@ if(CC_PL)
   set(SDK_LIB_DIR ${PLSDK}/lib)
   set(SDK_INCLUDE_DIR ${SDK_LIB_DIR}/app/include)
   set(SDK_APP_LIB ${SDK_LIB_DIR}/libpenglai-enclave-eapp.a)
+  set(SDK_GM_LIB ${SDK_LIB_DIR}/gm/sm2.a ${SDK_LIB_DIR}/gm/miracl.a)
   set(MY_MUSL_LIB_DIR /workspace/riscv64-linux-musl/riscv64-linux-musl/lib)
   set(MUSL_LIB_DIR ${PLSDK}/musl/lib)
   set(MUSL_LIBC ${MUSL_LIB_DIR}/libc.a)
@@ -236,69 +237,10 @@ if(CC_PL)
   set(MUSL_LIBATOMIC ${MY_MUSL_LIB_DIR}/libatomic.a)
   set(CC gcc)
   set(CXX g++)
-  # set(CMAKE_C_COMPILER gcc)
-  # set(CMAKE_CXX_COMPILER g++)
-  # set(GCC_LIB /workspace/riscv64-linux-musl/lib/gcc/riscv64-linux-musl/9.4.0/libgcc.a)
   set(GCC_LIB ${SDK_LIB_DIR}/libgcc.a)
   set(SECGEAR_TEE_LIB ${CMAKE_BINARY_DIR}/lib/libsecgear_tee.a)
 
   set(SOURCE_C_OBJS "")
-
-  # include_directories(${SDK_INCLUDE_DIR})
-  # include_directories(${CMAKE_CURRENT_BINARY_DIR})
-  # include_directories(${CMAKE_BINARY_DIR}/inc)
-  # include_directories(${LOCAL_ROOT_PATH}/inc/host_inc)
-  # include_directories(${LOCAL_ROOT_PATH}/inc/host_inc/penglai)
-  # include_directories(${LOCAL_ROOT_PATH}/inc/enclave_inc)
-  # include_directories(${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai)
-  #
-  # # add_library(source_c_object ${AUTO_FILES})
-  # set_source_files_properties(${AUTO_FILES} PROPERTIES LANGUAGE C)
-  # # target_compile_options(source_c_object PRIVATE -static -Wall)
-  # # target_link_libraries(source_c_object
-  # #     ${SDK_APP_LIB}
-  # #     ${SECGEAR_TEE_LIB}
-  # #     ${GCC_LIB}
-  # #     ${MUSL_LIBC}
-  # # )
-  # add_custom_target(generate_auto_files
-  #     DEPENDS ${AUTO_FILES}
-  # )
-  #
-  # add_library(source_objects OBJECT ${SOURCE_FILES})
-  # add_dependencies(source_objects generate_auto_files)
-  #
-  # target_compile_options(source_objects PRIVATE -static -fno-use-cxa-atexit -Wall)
-  #
-  # add_executable(${OUTPUT} $<TARGET_OBJECTS:source_objects> ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
-  #
-  #
-  # # foreach(SOURCE_FILE_CPP ${SOURCE_FILES})
-  # #   set_source_files_properties(${SOURCE_FILE_CPP} PROPERTIES LANGUAGE CXX)
-  # # endforeach()
-  # # set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c PROPERTIES LANGUAGE C)
-  # # 设置链接库
-  # target_link_directories(${OUTPUT}
-  #     PRIVATE
-  #     ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} 
-  #     ${SDK_LIB_DIR} 
-  #     ${MUSL_LIB_DIR} 
-  #     /usr/lib64 
-  # )
-  # target_link_libraries(${OUTPUT} 
-  #     penglai-enclave-eapp 
-  #     ${SDK_APP_LIB}
-  #     ${SECGEAR_TEE_LIB}
-  #     ${MUSL_LIBCPP}
-  #     ${GCC_LIB}
-  #     ${MUSL_LIBC}
-  # )
-  #
-  # # 链接器选项
-  # target_link_options(${OUTPUT} PRIVATE 
-  #     -static 
-  #     -T ${PLSDK}/app.lds
-  # )
 
   foreach(SOURCE_FILE ${SOURCE_FILES})
     STRING(REGEX REPLACE ".+/(.+)\\..*" "\\1" SOURCE_FILE_NAME ${SOURCE_FILE})
@@ -327,8 +269,8 @@ if(CC_PL)
   add_custom_command(
         OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB}
-        COMMAND ld -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lpenglai-enclave-eapp -lsecgear_tee -lc -lpthread
-            -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${SECGEAR_TEE_LIB} ${STATIC_LIBS} ${MUSL_LIBCPP}
+        COMMAND ld -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lsecgear_tee -lc -lpthread
+            -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SECGEAR_TEE_LIB} ${SDK_APP_LIB} ${SDK_GM_LIB} ${STATIC_LIBS} ${MUSL_LIBCPP}
              /usr/lib/libunwind.a ${MUSL_LIBC} ${GCC_LIB} ${MUSL_LIBATOMIC} /usr/lib/libjustworkaround.a -T ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds
         COMMAND chmod -x ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         COMMENT "generate penglai-ELF"

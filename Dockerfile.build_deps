@@ -1,0 +1,22 @@
+# 使用基础镜像
+FROM riscv64/ubuntu:20.04
+ARG DEBIAN_FRONTEND=noninteractive
+# ENV http_proxy "http://172.17.0.1:7890"
+# ENV HTTP_PROXY "http://172.17.0.1:7890"
+# ENV https_proxy "http://172.17.0.1:7890"
+# ENV HTTPS_PROXY "http://172.17.0.1:7890"
+RUN apt-get update && apt-get install -y build-essential cmake git unzip wget vim curl  
+
+WORKDIR /root
+COPY foonathan_memory_vendor.tar.gz /root
+RUN tar -zxvf foonathan_memory_vendor.tar.gz && rm foonathan_memory_vendor.tar.gz
+WORKDIR foonathan_memory_vendor/build
+RUN make install && rm -rf /root/foonathan_memory_vendor
+
+WORKDIR /root
+COPY confidential-distributed-softbus.tar.gz /root
+RUN tar -zxvf confidential-distributed-softbus.tar.gz && rm confidential-distributed-softbus.tar.gz
+WORKDIR confidential-distributed-softbus/build
+RUN make install && cd ../.. && rm -rf /root/confidential-distributed-softbus
+
+CMD ["/bin/bash"]

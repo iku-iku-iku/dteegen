@@ -1,8 +1,8 @@
 #include "../secure/add.h"
-#include "TEE-Capability/distributed_tee.h"
+#include "TEE-Capability/dtee_sdk.h"
 
 int main() {
-  auto ctx = init_distributed_tee_context({.side = SIDE::Server});
-  publish_secure_function(ctx, add);
-  tee_server_run(ctx);
+  auto ctx = init_distributed_tee_context(
+      {.side = SIDE::Server, .mode = MODE::COMPUTE_NODE});
+  dtee_server_run(ctx);
 }

@@ -10,6 +10,7 @@ CODEGEN=./build/codegen
 $CODEGEN $1
 
 if [ -d $1.generated ]; then
+	mv $1.generated/build generated
 	rm -rf $1.generated
 fi
 
