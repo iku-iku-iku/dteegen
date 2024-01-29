@@ -23,6 +23,7 @@ static bool is_migrate() {
   return false;
 }
 
+// 迁移模式下，远程调用enclave
 struct cc_enclave_ops migrate_enclave_ops = {
   .cc_ecall_enclave = (decltype(std::declval<cc_enclave_ops>().cc_ecall_enclave))remote_ecall_enclave
 };
@@ -39,9 +40,9 @@ cc_enclave_t migrate_enclave = {
   .list_ops_node = &migrate_enclave_list_ops_desc
 };
 
-void z_create_enclave() {
-
+void z_create_enclave(const char* enclave_path) {
   if (is_migrate()) {
+    // 如果是迁移模式，那么直接使用静态创建的enclave
     g_enclave_context = &migrate_enclave;
     return;
   } else {
@@ -50,23 +51,23 @@ void z_create_enclave() {
 
   cc_enclave_result_t res = CC_FAIL;
 
-  char *path = PATH;
+  // char *path = PATH;
+  //
+  // char real_p[PATH_MAX];
+  // /* check file exists, if not exist then use absolute path */
+  // if (realpath(path, real_p) == NULL) {
+  //   if (getcwd(real_p, sizeof(real_p)) == NULL) {
+  //     printf("Cannot find enclave.sign.so");
+  //     goto end;
+  //   }
+  //   if (PATH_MAX - strlen(real_p) <= strlen("/enclave.signed.so")) {
+  //     printf("Failed to strcat enclave.sign.so path");
+  //     goto end;
+  //   }
+  //   (void)strcat(real_p, "/enclave.signed.so");
+  // }
 
-  char real_p[PATH_MAX];
-  /* check file exists, if not exist then use absolute path */
-  if (realpath(path, real_p) == NULL) {
-    if (getcwd(real_p, sizeof(real_p)) == NULL) {
-      printf("Cannot find enclave.sign.so");
-      goto end;
-    }
-    if (PATH_MAX - strlen(real_p) <= strlen("/enclave.signed.so")) {
-      printf("Failed to strcat enclave.sign.so path");
-      goto end;
-    }
-    (void)strcat(real_p, "/enclave.signed.so");
-  }
-
-  res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG,
+  res = cc_enclave_create(enclave_path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG,
                           NULL, 0, g_enclave_context);
   if (res != CC_SUCCESS) {
     printf("Create enclave error\n");
@@ -105,8 +106,8 @@ __attribute__((constructor)) void before_main() {
 }
 
 
-int ecall_proxy(uint32_t fid, char* in_buf, int in_buf_size, char* out_buf, int out_buf_size) {
-  z_create_enclave();
+int ecall_proxy(const char* enclave_filename, uint32_t fid, char* in_buf, int in_buf_size, char* out_buf, int out_buf_size) {
+  z_create_enclave(enclave_filename);
   cc_enclave_result_t ret = CC_FAIL;
   uint32_t ms = 0;
 
