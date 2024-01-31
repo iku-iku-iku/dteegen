@@ -3,6 +3,6 @@
 
 int main() {
   auto ctx = init_distributed_tee_context(
-      {.side = SIDE::Server, .mode = MODE::COMPUTE_NODE});
+      {.side = SIDE::Server, .mode = MODE::ComputeNode});
   dtee_server_run(ctx);
 }

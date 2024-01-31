@@ -10,13 +10,27 @@ path: z_enclave_env_provider.cpp
 
 cc_enclave_t g_enclave;
 cc_enclave_t *g_enclave_context;
+#define HOOK_FUNC \
+  (decltype(std::declval<cc_enclave_ops>().cc_ecall_enclave))distributed_tee_ecall_enclave
 
+#define CC_ECALL_ENCLAVE \
+  g_enclave_context->list_ops_node->ops_desc->ops->cc_ecall_enclave
 extern "C" {
 
 static bool is_migrate() {
   if (g_current_dtee_context) {
     if (g_current_dtee_context->config.side == SIDE::Client && 
-        g_current_dtee_context->config.mode == MODE::MIGRATE) {
+        g_current_dtee_context->config.mode == MODE::Migrate) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool is_transparent() {
+  if (g_current_dtee_context) {
+    if (g_current_dtee_context->config.side == SIDE::Client && 
+        g_current_dtee_context->config.mode == MODE::Transparent) {
       return true;
     }
   }
@@ -24,26 +38,25 @@ static bool is_migrate() {
 }
 
 // 迁移模式下，远程调用enclave
-struct cc_enclave_ops migrate_enclave_ops = {
-  .cc_ecall_enclave = (decltype(std::declval<cc_enclave_ops>().cc_ecall_enclave))remote_ecall_enclave
+struct cc_enclave_ops hook_enclave_ops = {
+  .cc_ecall_enclave = HOOK_FUNC
 };
 
-struct cc_enclave_ops_desc migrate_enclave_desc = {
-  .ops = &migrate_enclave_ops
+struct cc_enclave_ops_desc hook_enclave_desc = {
+  .ops = &hook_enclave_ops
 };
 
-struct list_ops_desc migrate_enclave_list_ops_desc = {
-  .ops_desc = &migrate_enclave_desc
+struct list_ops_desc hook_enclave_list_ops_desc = {
+  .ops_desc = &hook_enclave_desc
 };
 
-cc_enclave_t migrate_enclave = {
-  .list_ops_node = &migrate_enclave_list_ops_desc
+cc_enclave_t hook_enclave = {
+  .list_ops_node = &hook_enclave_list_ops_desc
 };
 
 void z_create_enclave(const char* enclave_path) {
-  if (is_migrate()) {
-    // 如果是迁移模式，那么直接使用静态创建的enclave
-    g_enclave_context = &migrate_enclave;
+  if (is_migrate() || is_transparent() && !exist_local_tee()) {
+    g_enclave_context = &hook_enclave;
     return;
   } else {
     g_enclave_context = &g_enclave;
@@ -74,6 +87,15 @@ void z_create_enclave(const char* enclave_path) {
     goto end;
   }
 
+  if (g_enclave_context == NULL || 
+    g_enclave_context->list_ops_node == NULL ||
+    g_enclave_context->list_ops_node->ops_desc == NULL ||
+    g_enclave_context->list_ops_node->ops_desc->ops == NULL ||
+    g_enclave_context->list_ops_node->ops_desc->ops->cc_ecall_enclave == NULL) {
+    printf("Create enclave error\n");
+    goto end;
+  }
+
   return;
 
 end:
@@ -94,7 +116,7 @@ void z_destroy_enclave() {
 }
 
 __attribute__((constructor)) void before_main() {
-  pthread_rwlock_init(&(migrate_enclave.rwlock), NULL);
+  pthread_rwlock_init(&(hook_enclave.rwlock), NULL);
  // g_enclave = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
  // if (!g_enclave) {
  //   // return CC_ERROR_OUT_OF_MEMORY;
