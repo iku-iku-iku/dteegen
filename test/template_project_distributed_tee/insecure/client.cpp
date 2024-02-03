@@ -14,9 +14,9 @@ int main() {
 
   int res;
   int a = 1, b = 2;
-  res = mul(1, 2);
+  res = mul(a, b);
   printf("mul(%d, %d) == %d\n", a, b, res);
-  res = add(1, 2);
+  res = add(a, b);
   printf("add(%d, %d) == %d\n", a, b, res);
   // this will be execute secure func locally if there is tee locally, otherwise
   // it's the same as call_remote_secure_function

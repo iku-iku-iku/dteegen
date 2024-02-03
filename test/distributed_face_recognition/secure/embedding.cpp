@@ -41,5 +41,7 @@ int embedding(in_char img[IMG_SIZE], out_char res[EMBEDDING_SIZE]) {
   for (int i = 0; i < EMB_LEN; i++) {
     out[i] = output_tensor->data.f[i];
   }
-  return seal_data_inplace((char *)res, sizeof(res), EMB_LEN * sizeof(float));
+  /* return seal_data_inplace((char *)res, EMBEDDING_SIZE, */
+  /*                          EMB_LEN * sizeof(float)); */
+  return EMB_LEN;
 }

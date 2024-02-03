@@ -7,6 +7,7 @@ set(SERVER_SOURCE_FILES
 # NOTE: you can add your insecure source files here
   server.cpp
 )
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
 
 add_executable(server ${SERVER_SOURCE_FILES})
 add_executable(client ${CLIENT_SOURCE_FILES})
