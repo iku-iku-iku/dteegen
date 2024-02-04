@@ -20,7 +20,7 @@ extern "C" {
 #endif
 
 **begin**
-${ret} ${func_name}(${params}) {
+extern "C" ${ret} ${func_name}(${params}) {
   ${ret} retval;
 
   cc_enclave_result_t __Z_res = __insecure_${func_name}_impl(&retval ${comma_param_names});
