@@ -4,7 +4,6 @@ build
 .cache
 generated
 json.hpp
-CLI11.hpp
 *.a
 *.gz
 *.zip

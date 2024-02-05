@@ -1,4 +1,6 @@
+#pragma once
 #include "../secure/embedding.h"
 #include <array>
-#include <iostream>
-int img_receiver(std::array<char, IMG_SIZE> arr);
+int img_recorder(std::array<char, IMG_SIZE> arr, int id);
+
+int img_verifier(std::array<char, IMG_SIZE> arr);

@@ -41,7 +41,29 @@ int embedding(in_char img[IMG_SIZE], out_char res[EMBEDDING_SIZE]) {
   for (int i = 0; i < EMB_LEN; i++) {
     out[i] = output_tensor->data.f[i];
   }
-  /* return seal_data_inplace((char *)res, EMBEDDING_SIZE, */
-  /*                          EMB_LEN * sizeof(float)); */
-  return EMB_LEN;
+  return seal_data_inplace((char *)res, EMBEDDING_SIZE,
+                           EMB_LEN * sizeof(float));
+}
+
+float calculate_distance(in_char emb1[EMBEDDING_SIZE],
+                         in_char emb2[EMBEDDING_SIZE]) {
+
+  int emb_len1 = unseal_data_inplace(emb1, EMBEDDING_SIZE);
+  int emb_len2 = unseal_data_inplace(emb2, EMBEDDING_SIZE);
+
+  TEE_ASSERT(emb_len1 == emb_len2, "EMB1 LEN: %d, EMB2 LEN: %d\n", emb_len1,
+             emb_len2);
+
+  emb_len1 /= sizeof(float);
+
+  float *f1 = (float *)emb1;
+  float *f2 = (float *)emb2;
+
+  float sum = 0.f;
+  for (int i = 0; i < emb_len1; i++) {
+    float d = f1[i] - f2[i];
+    sum += d * d;
+  }
+
+  return sum;
 }
