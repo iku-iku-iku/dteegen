@@ -20,6 +20,9 @@ __attribute__((weak)) int dl_iterate_phdr(
   return 0;
 }
 
+__attribute__((weak)) void __fprintf_chk(...) {}
+__attribute__((weak)) void __sprintf_chk(...) {}
+
 __attribute__((weak)) void __calloc() {}
 
 __attribute__((weak)) unsigned long long strtoull_l(const char *__restrict s,

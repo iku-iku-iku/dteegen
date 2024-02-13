@@ -5,11 +5,22 @@
 
 #define INF 1000000
 
-constexpr float THRESHOLD = 0.6;
+constexpr float THRESHOLD = 8;
 
 int img_recorder(std::array<char, IMG_SIZE> arr, int id) {
+
+  for (int i = 0; i < 5; i++) {
+    printf("img[%d] %d\n", i, (int)arr[i]);
+  }
+  for (int i = IMG_SIZE - 5; i < IMG_SIZE; i++) {
+    printf("img[%d] %d\n", i, (int)arr[i]);
+  }
   char emb[EMBEDDING_SIZE];
   int sealed_data_len = embedding(arr.data(), emb);
+  float *ff = (float *)emb;
+  // for (int i = 0; i < 10; i++) {
+  //   printf("emb[%d] %f\n", i, ff[i]);
+  // }
   // the embedding is sealed and can be stored safely.
 
   std::string filename = "emb" + std::to_string(id) + ".bin";
@@ -25,6 +36,10 @@ int img_verifier(std::array<char, IMG_SIZE> arr) {
 
   char in_emb[EMBEDDING_SIZE];
   int sealed_data_len = embedding(arr.data(), in_emb);
+  float *ff = (float *)in_emb;
+  // for (int i = 0; i < 10; i++) {
+  //   printf("emb[%d] %f\n", i, ff[i]);
+  // }
 
   float min_dist = INF;
   int min_dist_id = -1;
@@ -41,7 +56,9 @@ int img_verifier(std::array<char, IMG_SIZE> arr) {
       in.read(emb1, EMBEDDING_SIZE);
 
       memcpy(emb2, in_emb, EMBEDDING_SIZE);
-      float dist = calculate_distance(emb1, emb2);
+      float dist;
+      // calculate_distance(emb1, emb2, (char *)&dist);
+      dist = calculate_distance(emb1, emb2);
       printf("DISTANCE WITH PERSON%d: %f\n", id, dist);
 
       if (dist < min_dist) {

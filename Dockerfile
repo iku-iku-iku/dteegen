@@ -4,6 +4,7 @@ WORKDIR /workspace
 ARG DEBIAN_FRONTEND=noninteractive
 # 安装基本工具
 RUN apt-get update && apt-get install -y \
+strace \
     build-essential \
     cmake \
     # ocaml \

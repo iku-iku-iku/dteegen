@@ -248,7 +248,7 @@ if(CC_PL)
     add_custom_command(
             OUTPUT ${SOURCE_OBJ}
             DEPENDS ${SOURCE_FILES}
-            COMMAND ${CXX} -std=c++17 -static -Wall -D__TEE=1 ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
+            COMMAND ${CXX} -std=c++17 -static -Wall -fno-stack-protector -D__TEE=1 ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
                 -I${LOCAL_ROOT_PATH}/inc/host_inc -I${LOCAL_ROOT_PATH}/inc/host_inc/penglai -I${LOCAL_ROOT_PATH}/inc/enclave_inc
                 -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${SOURCE_OBJ} ${SOURCE_FILE}
             COMMENT "generate SOURCE_OBJ"
@@ -260,7 +260,7 @@ if(CC_PL)
   add_custom_command(
         OUTPUT ${APP_C_OBJ}
         DEPENDS ${AUTO_FILES}
-        COMMAND ${CC} -static -Wall ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
+        COMMAND ${CC} -static -Wall -fno-stack-protector ${COMPILER_INCLUDES} -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
             -I${LOCAL_ROOT_PATH}/inc/host_inc -I${LOCAL_ROOT_PATH}/inc/host_inc/penglai -I${LOCAL_ROOT_PATH}/inc/enclave_inc
             -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${APP_C_OBJ} ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c
         COMMENT "generate APP_C_OBJ"

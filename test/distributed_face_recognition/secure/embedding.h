@@ -7,5 +7,9 @@ typedef char in_char;
 typedef char out_char;
 int embedding(in_char img[IMG_SIZE], out_char res[EMBEDDING_SIZE]);
 
+// int calculate_distance(in_char emb1[EMBEDDING_SIZE],
+//                        in_char emb2[EMBEDDING_SIZE], char dist[4]);
+
+
 float calculate_distance(in_char emb1[EMBEDDING_SIZE],
-                         in_char emb2[EMBEDDING_SIZE]);
+                       in_char emb2[EMBEDDING_SIZE]);

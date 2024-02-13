@@ -1,0 +1,112 @@
+7767517
+110 122
+Input            x.1                      0 1 x.1
+Convolution      /conv1/conv/Conv         1 1 x.1 /conv1/conv/Conv_output_0 0=64 1=3 11=3 2=1 12=1 3=2 13=2 4=1 14=1 15=1 16=1 5=1 6=1728
+PReLU            /conv1/prelu/PRelu       1 1 /conv1/conv/Conv_output_0 /conv1/prelu/PRelu_output_0 0=64
+ConvolutionDepthWise /conv2_dw/conv/Conv      1 1 /conv1/prelu/PRelu_output_0 /conv2_dw/conv/Conv_output_0 0=64 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=576 7=64
+PReLU            /conv2_dw/prelu/PRelu    1 1 /conv2_dw/conv/Conv_output_0 /conv2_dw/prelu/PRelu_output_0 0=64
+Convolution      /conv_23/conv/conv/Conv  1 1 /conv2_dw/prelu/PRelu_output_0 /conv_23/conv/conv/Conv_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+PReLU            /conv_23/conv/prelu/PRelu 1 1 /conv_23/conv/conv/Conv_output_0 /conv_23/conv/prelu/PRelu_output_0 0=128
+ConvolutionDepthWise /conv_23/conv_dw/conv/Conv 1 1 /conv_23/conv/prelu/PRelu_output_0 /conv_23/conv_dw/conv/Conv_output_0 0=128 1=3 11=3 2=1 12=1 3=2 13=2 4=1 14=1 15=1 16=1 5=1 6=1152 7=128
+PReLU            /conv_23/conv_dw/prelu/PRelu 1 1 /conv_23/conv_dw/conv/Conv_output_0 /conv_23/conv_dw/prelu/PRelu_output_0 0=128
+Convolution      /conv_23/project/conv/Conv 1 1 /conv_23/conv_dw/prelu/PRelu_output_0 /conv_23/project/conv/Conv_output_0 0=64 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+Split            splitncnn_0              1 2 /conv_23/project/conv/Conv_output_0 /conv_23/project/conv/Conv_output_0_splitncnn_0 /conv_23/project/conv/Conv_output_0_splitncnn_1
+Convolution      /conv_3/model/0/conv/Conv 1 1 /conv_23/project/conv/Conv_output_0_splitncnn_1 /conv_3/model/0/conv/Conv_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+PReLU            /conv_3/model/0/conv/PRelu 1 1 /conv_3/model/0/conv/Conv_output_0 /conv_3/model/0/conv/PRelu_output_0 0=128
+ConvolutionDepthWise /conv_3/model/0/conv_dw/conv/Conv 1 1 /conv_3/model/0/conv/PRelu_output_0 /conv_3/model/0/conv_dw/conv/Conv_output_0 0=128 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=1152 7=128
+PReLU            /conv_3/model/0/conv_dw/prelu/PRelu 1 1 /conv_3/model/0/conv_dw/conv/Conv_output_0 /conv_3/model/0/conv_dw/prelu/PRelu_output_0 0=128
+Convolution      /conv_3/model/0/project/Conv 1 1 /conv_3/model/0/conv_dw/prelu/PRelu_output_0 /conv_3/model/0/project/Conv_output_0 0=64 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+BinaryOp         /conv_3/model/0/Add      2 1 /conv_23/project/conv/Conv_output_0_splitncnn_0 /conv_3/model/0/project/Conv_output_0 /conv_3/model/0/Add_output_0 0=0
+Split            splitncnn_1              1 2 /conv_3/model/0/Add_output_0 /conv_3/model/0/Add_output_0_splitncnn_0 /conv_3/model/0/Add_output_0_splitncnn_1
+Convolution      /conv_3/model/1/Conv     1 1 /conv_3/model/0/Add_output_0_splitncnn_1 /conv_3/model/1/Conv_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+PReLU            /conv_3/model/1/PRelu    1 1 /conv_3/model/1/Conv_output_0 /conv_3/model/1/PRelu_output_0 0=128
+ConvolutionDepthWise /conv_3/model/1/Conv_1   1 1 /conv_3/model/1/PRelu_output_0 /conv_3/model/1/Conv_1_output_0 0=128 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=1152 7=128
+PReLU            /conv_3/model/1/PRelu_1  1 1 /conv_3/model/1/Conv_1_output_0 /conv_3/model/1/PRelu_1_output_0 0=128
+Convolution      /conv_3/model/1/Conv_2   1 1 /conv_3/model/1/PRelu_1_output_0 /conv_3/model/1/Conv_2_output_0 0=64 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+BinaryOp         /conv_3/model/1/Add      2 1 /conv_3/model/0/Add_output_0_splitncnn_0 /conv_3/model/1/Conv_2_output_0 /conv_3/model/1/Add_output_0 0=0
+Split            splitncnn_2              1 2 /conv_3/model/1/Add_output_0 /conv_3/model/1/Add_output_0_splitncnn_0 /conv_3/model/1/Add_output_0_splitncnn_1
+Convolution      /conv_3/model/2/Conv     1 1 /conv_3/model/1/Add_output_0_splitncnn_1 /conv_3/model/2/Conv_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+PReLU            /conv_3/model/2/PRelu    1 1 /conv_3/model/2/Conv_output_0 /conv_3/model/2/PRelu_output_0 0=128
+ConvolutionDepthWise /conv_3/model/2/Conv_1   1 1 /conv_3/model/2/PRelu_output_0 /conv_3/model/2/Conv_1_output_0 0=128 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=1152 7=128
+PReLU            /conv_3/model/2/PRelu_1  1 1 /conv_3/model/2/Conv_1_output_0 /conv_3/model/2/PRelu_1_output_0 0=128
+Convolution      /conv_3/model/2/Conv_2   1 1 /conv_3/model/2/PRelu_1_output_0 /conv_3/model/2/Conv_2_output_0 0=64 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+BinaryOp         /conv_3/model/2/Add      2 1 /conv_3/model/1/Add_output_0_splitncnn_0 /conv_3/model/2/Conv_2_output_0 /conv_3/model/2/Add_output_0 0=0
+Split            splitncnn_3              1 2 /conv_3/model/2/Add_output_0 /conv_3/model/2/Add_output_0_splitncnn_0 /conv_3/model/2/Add_output_0_splitncnn_1
+Convolution      /conv_3/model/3/Conv     1 1 /conv_3/model/2/Add_output_0_splitncnn_1 /conv_3/model/3/Conv_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+PReLU            /conv_3/model/3/PRelu    1 1 /conv_3/model/3/Conv_output_0 /conv_3/model/3/PRelu_output_0 0=128
+ConvolutionDepthWise /conv_3/model/3/Conv_1   1 1 /conv_3/model/3/PRelu_output_0 /conv_3/model/3/Conv_1_output_0 0=128 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=1152 7=128
+PReLU            /conv_3/model/3/PRelu_1  1 1 /conv_3/model/3/Conv_1_output_0 /conv_3/model/3/PRelu_1_output_0 0=128
+Convolution      /conv_3/model/3/Conv_2   1 1 /conv_3/model/3/PRelu_1_output_0 /conv_3/model/3/Conv_2_output_0 0=64 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192
+BinaryOp         /conv_3/model/3/Add      2 1 /conv_3/model/2/Add_output_0_splitncnn_0 /conv_3/model/3/Conv_2_output_0 /conv_3/model/3/Add_output_0 0=0
+Convolution      /conv_34/conv/conv/Conv  1 1 /conv_3/model/3/Add_output_0 /conv_34/conv/conv/Conv_output_0 0=256 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=16384
+PReLU            /conv_34/conv/prelu/PRelu 1 1 /conv_34/conv/conv/Conv_output_0 /conv_34/conv/prelu/PRelu_output_0 0=256
+ConvolutionDepthWise /conv_34/conv_dw/conv/Conv 1 1 /conv_34/conv/prelu/PRelu_output_0 /conv_34/conv_dw/conv/Conv_output_0 0=256 1=3 11=3 2=1 12=1 3=2 13=2 4=1 14=1 15=1 16=1 5=1 6=2304 7=256
+PReLU            /conv_34/conv_dw/prelu/PRelu 1 1 /conv_34/conv_dw/conv/Conv_output_0 /conv_34/conv_dw/prelu/PRelu_output_0 0=256
+Convolution      /conv_34/project/conv/Conv 1 1 /conv_34/conv_dw/prelu/PRelu_output_0 /conv_34/project/conv/Conv_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+Split            splitncnn_4              1 2 /conv_34/project/conv/Conv_output_0 /conv_34/project/conv/Conv_output_0_splitncnn_0 /conv_34/project/conv/Conv_output_0_splitncnn_1
+Convolution      /conv_4/model/0/conv/conv/Conv 1 1 /conv_34/project/conv/Conv_output_0_splitncnn_1 /conv_4/model/0/conv/conv/Conv_output_0 0=256 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+PReLU            /conv_4/model/0/conv/prelu/PRelu 1 1 /conv_4/model/0/conv/conv/Conv_output_0 /conv_4/model/0/conv/prelu/PRelu_output_0 0=256
+ConvolutionDepthWise /conv_4/model/0/conv_dw/conv/Conv 1 1 /conv_4/model/0/conv/prelu/PRelu_output_0 /conv_4/model/0/conv_dw/conv/Conv_output_0 0=256 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=2304 7=256
+PReLU            /conv_4/model/0/conv_dw/prelu/PRelu 1 1 /conv_4/model/0/conv_dw/conv/Conv_output_0 /conv_4/model/0/conv_dw/prelu/PRelu_output_0 0=256
+Convolution      /conv_4/model/0/project/Conv 1 1 /conv_4/model/0/conv_dw/prelu/PRelu_output_0 /conv_4/model/0/project/Conv_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+BinaryOp         /conv_4/model/0/Add      2 1 /conv_34/project/conv/Conv_output_0_splitncnn_0 /conv_4/model/0/project/Conv_output_0 /conv_4/model/0/Add_output_0 0=0
+Split            splitncnn_5              1 2 /conv_4/model/0/Add_output_0 /conv_4/model/0/Add_output_0_splitncnn_0 /conv_4/model/0/Add_output_0_splitncnn_1
+Convolution      /conv_4/model/1/Conv     1 1 /conv_4/model/0/Add_output_0_splitncnn_1 /conv_4/model/1/Conv_output_0 0=256 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+PReLU            /conv_4/model/1/PRelu    1 1 /conv_4/model/1/Conv_output_0 /conv_4/model/1/PRelu_output_0 0=256
+ConvolutionDepthWise /conv_4/model/1/Conv_1   1 1 /conv_4/model/1/PRelu_output_0 /conv_4/model/1/Conv_1_output_0 0=256 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=2304 7=256
+PReLU            /conv_4/model/1/PRelu_1  1 1 /conv_4/model/1/Conv_1_output_0 /conv_4/model/1/PRelu_1_output_0 0=256
+Convolution      /conv_4/model/1/Conv_2   1 1 /conv_4/model/1/PRelu_1_output_0 /conv_4/model/1/Conv_2_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+BinaryOp         /conv_4/model/1/Add      2 1 /conv_4/model/0/Add_output_0_splitncnn_0 /conv_4/model/1/Conv_2_output_0 /conv_4/model/1/Add_output_0 0=0
+Split            splitncnn_6              1 2 /conv_4/model/1/Add_output_0 /conv_4/model/1/Add_output_0_splitncnn_0 /conv_4/model/1/Add_output_0_splitncnn_1
+Convolution      /conv_4/model/2/Conv     1 1 /conv_4/model/1/Add_output_0_splitncnn_1 /conv_4/model/2/Conv_output_0 0=256 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+PReLU            /conv_4/model/2/PRelu    1 1 /conv_4/model/2/Conv_output_0 /conv_4/model/2/PRelu_output_0 0=256
+ConvolutionDepthWise /conv_4/model/2/Conv_1   1 1 /conv_4/model/2/PRelu_output_0 /conv_4/model/2/Conv_1_output_0 0=256 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=2304 7=256
+PReLU            /conv_4/model/2/PRelu_1  1 1 /conv_4/model/2/Conv_1_output_0 /conv_4/model/2/PRelu_1_output_0 0=256
+Convolution      /conv_4/model/2/Conv_2   1 1 /conv_4/model/2/PRelu_1_output_0 /conv_4/model/2/Conv_2_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+BinaryOp         /conv_4/model/2/Add      2 1 /conv_4/model/1/Add_output_0_splitncnn_0 /conv_4/model/2/Conv_2_output_0 /conv_4/model/2/Add_output_0 0=0
+Split            splitncnn_7              1 2 /conv_4/model/2/Add_output_0 /conv_4/model/2/Add_output_0_splitncnn_0 /conv_4/model/2/Add_output_0_splitncnn_1
+Convolution      /conv_4/model/3/Conv     1 1 /conv_4/model/2/Add_output_0_splitncnn_1 /conv_4/model/3/Conv_output_0 0=256 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+PReLU            /conv_4/model/3/PRelu    1 1 /conv_4/model/3/Conv_output_0 /conv_4/model/3/PRelu_output_0 0=256
+ConvolutionDepthWise /conv_4/model/3/Conv_1   1 1 /conv_4/model/3/PRelu_output_0 /conv_4/model/3/Conv_1_output_0 0=256 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=2304 7=256
+PReLU            /conv_4/model/3/PRelu_1  1 1 /conv_4/model/3/Conv_1_output_0 /conv_4/model/3/PRelu_1_output_0 0=256
+Convolution      /conv_4/model/3/Conv_2   1 1 /conv_4/model/3/PRelu_1_output_0 /conv_4/model/3/Conv_2_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+BinaryOp         /conv_4/model/3/Add      2 1 /conv_4/model/2/Add_output_0_splitncnn_0 /conv_4/model/3/Conv_2_output_0 /conv_4/model/3/Add_output_0 0=0
+Split            splitncnn_8              1 2 /conv_4/model/3/Add_output_0 /conv_4/model/3/Add_output_0_splitncnn_0 /conv_4/model/3/Add_output_0_splitncnn_1
+Convolution      /conv_4/model/4/Conv     1 1 /conv_4/model/3/Add_output_0_splitncnn_1 /conv_4/model/4/Conv_output_0 0=256 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+PReLU            /conv_4/model/4/PRelu    1 1 /conv_4/model/4/Conv_output_0 /conv_4/model/4/PRelu_output_0 0=256
+ConvolutionDepthWise /conv_4/model/4/Conv_1   1 1 /conv_4/model/4/PRelu_output_0 /conv_4/model/4/Conv_1_output_0 0=256 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=2304 7=256
+PReLU            /conv_4/model/4/PRelu_1  1 1 /conv_4/model/4/Conv_1_output_0 /conv_4/model/4/PRelu_1_output_0 0=256
+Convolution      /conv_4/model/4/Conv_2   1 1 /conv_4/model/4/PRelu_1_output_0 /conv_4/model/4/Conv_2_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+BinaryOp         /conv_4/model/4/Add      2 1 /conv_4/model/3/Add_output_0_splitncnn_0 /conv_4/model/4/Conv_2_output_0 /conv_4/model/4/Add_output_0 0=0
+Split            splitncnn_9              1 2 /conv_4/model/4/Add_output_0 /conv_4/model/4/Add_output_0_splitncnn_0 /conv_4/model/4/Add_output_0_splitncnn_1
+Convolution      /conv_4/model/5/Conv     1 1 /conv_4/model/4/Add_output_0_splitncnn_1 /conv_4/model/5/Conv_output_0 0=256 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+PReLU            /conv_4/model/5/PRelu    1 1 /conv_4/model/5/Conv_output_0 /conv_4/model/5/PRelu_output_0 0=256
+ConvolutionDepthWise /conv_4/model/5/Conv_1   1 1 /conv_4/model/5/PRelu_output_0 /conv_4/model/5/Conv_1_output_0 0=256 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=2304 7=256
+PReLU            /conv_4/model/5/PRelu_1  1 1 /conv_4/model/5/Conv_1_output_0 /conv_4/model/5/PRelu_1_output_0 0=256
+Convolution      /conv_4/model/5/Conv_2   1 1 /conv_4/model/5/PRelu_1_output_0 /conv_4/model/5/Conv_2_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+BinaryOp         /conv_4/model/5/Add      2 1 /conv_4/model/4/Add_output_0_splitncnn_0 /conv_4/model/5/Conv_2_output_0 /conv_4/model/5/Add_output_0 0=0
+Convolution      /conv_45/conv/conv/Conv  1 1 /conv_4/model/5/Add_output_0 /conv_45/conv/conv/Conv_output_0 0=512 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=65536
+PReLU            /conv_45/conv/prelu/PRelu 1 1 /conv_45/conv/conv/Conv_output_0 /conv_45/conv/prelu/PRelu_output_0 0=512
+ConvolutionDepthWise /conv_45/conv_dw/conv/Conv 1 1 /conv_45/conv/prelu/PRelu_output_0 /conv_45/conv_dw/conv/Conv_output_0 0=512 1=3 11=3 2=1 12=1 3=2 13=2 4=1 14=1 15=1 16=1 5=1 6=4608 7=512
+PReLU            /conv_45/conv_dw/prelu/PRelu 1 1 /conv_45/conv_dw/conv/Conv_output_0 /conv_45/conv_dw/prelu/PRelu_output_0 0=512
+Convolution      /conv_45/project/conv/Conv 1 1 /conv_45/conv_dw/prelu/PRelu_output_0 /conv_45/project/conv/Conv_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=65536
+Split            splitncnn_10             1 2 /conv_45/project/conv/Conv_output_0 /conv_45/project/conv/Conv_output_0_splitncnn_0 /conv_45/project/conv/Conv_output_0_splitncnn_1
+Convolution      /conv_5/model/0/Conv     1 1 /conv_45/project/conv/Conv_output_0_splitncnn_1 /conv_5/model/0/Conv_output_0 0=256 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+PReLU            /conv_5/model/0/PRelu    1 1 /conv_5/model/0/Conv_output_0 /conv_5/model/0/PRelu_output_0 0=256
+ConvolutionDepthWise /conv_5/model/0/Conv_1   1 1 /conv_5/model/0/PRelu_output_0 /conv_5/model/0/Conv_1_output_0 0=256 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=2304 7=256
+PReLU            /conv_5/model/0/PRelu_1  1 1 /conv_5/model/0/Conv_1_output_0 /conv_5/model/0/PRelu_1_output_0 0=256
+Convolution      /conv_5/model/0/Conv_2   1 1 /conv_5/model/0/PRelu_1_output_0 /conv_5/model/0/Conv_2_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+BinaryOp         /conv_5/model/0/Add      2 1 /conv_45/project/conv/Conv_output_0_splitncnn_0 /conv_5/model/0/Conv_2_output_0 /conv_5/model/0/Add_output_0 0=0
+Split            splitncnn_11             1 2 /conv_5/model/0/Add_output_0 /conv_5/model/0/Add_output_0_splitncnn_0 /conv_5/model/0/Add_output_0_splitncnn_1
+Convolution      /conv_5/model/1/Conv     1 1 /conv_5/model/0/Add_output_0_splitncnn_1 /conv_5/model/1/Conv_output_0 0=256 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+PReLU            /conv_5/model/1/PRelu    1 1 /conv_5/model/1/Conv_output_0 /conv_5/model/1/PRelu_output_0 0=256
+ConvolutionDepthWise /conv_5/model/1/Conv_1   1 1 /conv_5/model/1/PRelu_output_0 /conv_5/model/1/Conv_1_output_0 0=256 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=2304 7=256
+PReLU            /conv_5/model/1/PRelu_1  1 1 /conv_5/model/1/Conv_1_output_0 /conv_5/model/1/PRelu_1_output_0 0=256
+Convolution      /conv_5/model/1/Conv_2   1 1 /conv_5/model/1/PRelu_1_output_0 /conv_5/model/1/Conv_2_output_0 0=128 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=32768
+BinaryOp         /conv_5/model/1/Add      2 1 /conv_5/model/0/Add_output_0_splitncnn_0 /conv_5/model/1/Conv_2_output_0 /conv_5/model/1/Add_output_0 0=0
+Convolution      /conv_6_sep/Conv         1 1 /conv_5/model/1/Add_output_0 /conv_6_sep/Conv_output_0 0=512 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=65536
+PReLU            /conv_6_sep/PRelu        1 1 /conv_6_sep/Conv_output_0 /conv_6_sep/PRelu_output_0 0=512
+ConvolutionDepthWise /conv_6_dw/conv/Conv     1 1 /conv_6_sep/PRelu_output_0 /conv_6_dw/conv/Conv_output_0 0=512 1=7 11=7 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=25088 7=512
+Flatten          /flatten/Flatten         1 1 /conv_6_dw/conv/Conv_output_0 /flatten/Flatten_output_0
+InnerProduct     /linear/MatMul           1 1 /flatten/Flatten_output_0 /linear/MatMul_output_0 0=512 1=0 2=262144
+BatchNorm        /bn/BatchNormalization   1 1 /linear/MatMul_output_0 496 0=512

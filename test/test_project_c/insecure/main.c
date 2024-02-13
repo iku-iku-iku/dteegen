@@ -9,6 +9,7 @@ int main(int argc, char **argv) {
   printf("The result is %s\n", buf);
 
   printf("add(3, 4) = %d\n", add(3, 4));
+  printf("pi = %f\n", pi());
 
   /* init_distributed_tee_framework(); */
 

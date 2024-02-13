@@ -1,7 +1,10 @@
-.PHONY: all clean deploy generate test_project generate_cpp build_in_docker docker build_compile_deps build_docker build_target
+.PHONY: all debug clean deploy generate test_project generate_cpp build_in_docker docker build_compile_deps build_docker build_target build_target_raw
 
 all:
-	bash ./scripts/build_codegen.sh
+	./scripts/build_codegen.sh release
+
+debug:
+	./scripts/build_codegen.sh debug
 
 clean:
 	rm -rf build
@@ -34,6 +37,11 @@ build_target:
 	@echo "Building $(TARGET)"
 	make build_compile_deps
 	sudo make docker
+	sudo ./scripts/gen_target.sh $(TARGET)
+	sudo ./scripts/build_in_docker.sh $(TARGET).generated
+
+build_target_raw: 
+	@echo "Building $(TARGET)"
 	sudo ./scripts/gen_target.sh $(TARGET)
 	sudo ./scripts/build_in_docker.sh $(TARGET).generated
 
