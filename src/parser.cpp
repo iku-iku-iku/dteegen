@@ -6,23 +6,6 @@
 
 CXTranslationUnit *g_unit;
 
-#define PATTERN(name)                                                          \
-  { std::regex("(\\$\\{" #name "\\})"), &SourceContext::name }
-
-std::vector<std::pair<std::regex, decltype(&SourceContext::src)>> replaces{
-    PATTERN(src),
-    PATTERN(src_content),
-    PATTERN(ret),
-    PATTERN(params),
-    PATTERN(comma_params),
-    PATTERN(func_name),
-    PATTERN(comma_param_names),
-    PATTERN(root_cmake),
-    PATTERN(host_secure_cmake),
-    PATTERN(project),
-    PATTERN(edl_params),
-    PATTERN(src_path)};
-
 std::string g_filepath;
 
 template <bool WithType, bool IsEDL, bool WithCommaAhead>
@@ -242,21 +225,20 @@ std::string getFunctionBody(CXCursor cursor) {
   return functionBody;
 }
 
+// an entry func is a func defined in one world and called in another world
 template <WorldType world_type_visited>
 CXChildVisitResult
 entry_func_def_collect_visitor(const CXCursor &cursor, const CXCursor &parent,
                                const CXClientData &clientData) {
   auto kind = clang_getCursorKind(cursor);
-  /* std::cout << clang_getCString(clang_getCursorKindSpelling(kind)) <<
-   * std::endl; */
-  /* if (kind == CXCursor_MacroExpansion) { */
-  /*   std::cout << "MacroExpansion: " << getCursorSpelling(cursor) <<
-   * std::endl; */
-  /* } */
+  // ignore headers
   if (clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0) {
     return CXChildVisit_Continue;
   }
 
+  // take func decl as func call because you must define the func before you
+  // call it. This is sound, because some function maybe defined but not called,
+  // thus taken into account. But that's still correct.
   if (kind == CXCursor_FunctionDecl) {
     auto func_name = getCursorSpelling(cursor);
 
@@ -337,14 +319,6 @@ void parse_file(const char *path, VISITOR visitor, void *client_data) {
 
   clang_disposeTranslationUnit(unit);
   clang_disposeIndex(index);
-}
-
-std::string parse_template(std::string templ, const SourceContext &ctx) {
-  std::string res = std::move(templ);
-  for (const auto &[pat, repl] : replaces) {
-    res = std::regex_replace(res, pat, ctx.*repl);
-  }
-  return res;
 }
 
 std::string get_filepath(std::ifstream &ifs, const SourceContext &ctx) {

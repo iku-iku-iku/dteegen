@@ -3,11 +3,6 @@
 
 #include "fs.h"
 #include "parser.h"
-bool is_source_file(const std::filesystem::path &p) {
-  return p.extension() == ".c" || p.extension() == ".cpp" ||
-         p.extension() == ".cc";
-}
-
 void generate_secgear(const std::filesystem::path project_root) {
 
   std::filesystem::path generated_path("generated");
@@ -40,12 +35,6 @@ void generate_secgear(const std::filesystem::path project_root) {
   // we consider declaration as call, since you must decalare before call
   // This assumption will not omit 'true call'
   std::unordered_set<std::string> skip_dir = {"secure_lib", "secure_include"};
-  /* for_each_in_dir(insecure_root, [&](const auto &entry) { */
-  /*   if (entry.is_directory() && (skip_dir.contain(entry.path().filename())))
-   * { */
-  /*     return; */
-  /*   } */
-  /* }); */
 
   for_each_file_in_path_recursive(
       insecure_root,
@@ -53,6 +42,7 @@ void generate_secgear(const std::filesystem::path project_root) {
         if (!is_source_file(insecure_file.path())) {
           return;
         }
+        // parse insecure file to collect func calls
         parse_file(insecure_file.path().c_str(), func_call_collect_visitor,
                    nullptr);
         func_calls_in_insecure_world.insert(func_calls_each_file.begin(),
@@ -67,6 +57,7 @@ void generate_secgear(const std::filesystem::path project_root) {
         if (!is_source_file(secure_file.path())) {
           return;
         }
+        // parse secure file to collect func calls
         parse_file(secure_file.path().c_str(), func_call_collect_visitor,
                    nullptr);
         func_calls_in_secure_world.insert(func_calls_each_file.begin(),
@@ -74,15 +65,6 @@ void generate_secgear(const std::filesystem::path project_root) {
         func_calls_each_file.clear();
       },
       skip_dir);
-
-  /* std::cout << "func_calls_in_insecure_world:" << std::endl; */
-  /* for (const auto &func : func_calls_in_insecure_world) { */
-  /*   std::cout << func << std::endl; */
-  /* } */
-  /* std::cout << "func_calls_in_secure_world:" << std::endl; */
-  /* for (const auto &func : func_calls_in_secure_world) { */
-  /*   std::cout << func << std::endl; */
-  /* } */
 
   for_each_file_in_path_recursive(
       secure_root,
@@ -111,7 +93,6 @@ void generate_secgear(const std::filesystem::path project_root) {
         }
 
         ctx.src_path = secure_func_filepath.lexically_relative(project_root);
-        ctx.src = secure_func_filepath.stem().string();
         ctx.src_content = read_file_content(secure_func_filepath);
 
         // process secure func template for funcs in this file
@@ -145,7 +126,6 @@ void generate_secgear(const std::filesystem::path project_root) {
         }
 
         ctx.src_path = insecure_func_filepath.lexically_relative(project_root);
-        ctx.src = insecure_func_filepath.stem().string();
         ctx.src_content = read_file_content(insecure_func_filepath);
 
         for_each_file_in_path_recursive(insecure_func_template_path,
