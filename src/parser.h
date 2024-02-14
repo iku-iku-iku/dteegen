@@ -16,6 +16,10 @@ struct Param {
   bool is_array;
 };
 
+struct FileContext {
+  std::string file_path;
+};
+
 struct FunctionInfo {
   std::string name;
   std::string returnType;
@@ -28,7 +32,7 @@ using VISITOR = CXChildVisitResult (*)(CXCursor cursor, CXCursor parent,
 
 std::string read_file_content(const std::string &filename);
 
-void parse_file(const char *path, VISITOR visitor, void *client_data);
+void parse_file(const FileContext &file_ctx, VISITOR visitor);
 
 CXChildVisitResult func_call_collect_visitor(CXCursor cursor, CXCursor parent,
                                              CXClientData clientData);

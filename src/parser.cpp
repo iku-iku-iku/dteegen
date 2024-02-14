@@ -1,12 +1,9 @@
+#include "fs.h"
 #include "pch.h"
 #include "clang-c/CXString.h"
 #include "clang-c/Index.h"
 
 #include "parser.h"
-
-CXTranslationUnit *g_unit;
-
-std::string g_filepath;
 
 template <bool WithType, bool IsEDL, bool WithCommaAhead>
 std::string get_params_str(const std::vector<Param> &params) {
@@ -168,42 +165,22 @@ std::vector<Param> getFunctionParameters(CXCursor cursor) {
   return parameters;
 }
 
-std::string readSourceCode(const std::string &filePath) {
-  std::ifstream file(filePath);
-  std::stringstream buffer;
-
-  if (file) {
-    // 读取文件内容到 buffer
-    buffer << file.rdbuf();
-    file.close();
-    // 将 buffer 转换为 string
-    return buffer.str();
-  } else {
-    // 文件打开失败的处理
-    std::cerr << "Unable to open file: " << filePath << std::endl;
+std::string get_function_body(CXCursor cursor, const std::string &filepath) {
+  if (clang_getCursorKind(cursor) != CXCursor_FunctionDecl) {
     return "";
   }
-}
 
-std::string getFunctionBody(CXCursor cursor) {
-  // 确保传入的游标是函数声明
-  if (clang_getCursorKind(cursor) != CXCursor_FunctionDecl) {
-    return ""; // 或者抛出异常
-  }
-
-  CXCursor bodyCursor = clang_getNullCursor(); // 初始化为null游标
+  CXCursor bodyCursor = clang_getNullCursor();
   clang_visitChildren(
       cursor,
       [](CXCursor c, CXCursor parent, CXClientData clientData) {
         if (clang_getCursorKind(c) == CXCursor_CompoundStmt) {
-          // 找到函数体
           *reinterpret_cast<CXCursor *>(clientData) = c;
-          return CXChildVisit_Break; // 停止遍历
+          return CXChildVisit_Break;
         }
-        return CXChildVisit_Continue; // 继续遍历
+        return CXChildVisit_Continue;
       },
       &bodyCursor);
-  // 获取函数体的范围
   if (bodyCursor.kind == CXCursor_InvalidCode) {
     return "";
   }
@@ -211,18 +188,16 @@ std::string getFunctionBody(CXCursor cursor) {
   CXSourceLocation startLoc = clang_getRangeStart(range);
   CXSourceLocation endLoc = clang_getRangeEnd(range);
 
-  // 获取源代码的位置信息
   unsigned int startOffset, endOffset;
   clang_getSpellingLocation(startLoc, nullptr, nullptr, nullptr, &startOffset);
   clang_getSpellingLocation(endLoc, nullptr, nullptr, nullptr, &endOffset);
 
-  std::string sourceCode = readSourceCode(g_filepath); // 需要实现这个函数
+  std::string sourceCode = read_file(filepath);
 
-  // 提取函数体
-  std::string functionBody =
+  std::string function_body =
       sourceCode.substr(startOffset, endOffset - startOffset);
 
-  return functionBody;
+  return function_body;
 }
 
 // an entry func is a func defined in one world and called in another world
@@ -230,15 +205,16 @@ template <WorldType world_type_visited>
 CXChildVisitResult
 entry_func_def_collect_visitor(const CXCursor &cursor, const CXCursor &parent,
                                const CXClientData &clientData) {
+
+  const FileContext &file_ctx =
+      *reinterpret_cast<const FileContext *>(clientData);
+
   auto kind = clang_getCursorKind(cursor);
   // ignore headers
   if (clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0) {
     return CXChildVisit_Continue;
   }
 
-  // take func decl as func call because you must define the func before you
-  // call it. This is sound, because some function maybe defined but not called,
-  // thus taken into account. But that's still correct.
   if (kind == CXCursor_FunctionDecl) {
     auto func_name = getCursorSpelling(cursor);
 
@@ -258,7 +234,7 @@ entry_func_def_collect_visitor(const CXCursor &cursor, const CXCursor &parent,
       funcInfo.name = std::move(func_name);
       funcInfo.returnType = getFunctionReturnType(cursor);
       funcInfo.parameters = getFunctionParameters(cursor);
-      funcInfo.body = getFunctionBody(cursor);
+      funcInfo.body = get_function_body(cursor, file_ctx.file_path);
 
       // if body is not empty, then it is a definition
       if (!funcInfo.body.empty()) {
@@ -285,6 +261,9 @@ secure_world_entry_func_def_collect_visitor(CXCursor cursor, CXCursor parent,
 
 CXChildVisitResult func_call_collect_visitor(CXCursor cursor, CXCursor parent,
                                              CXClientData clientData) {
+  // take func decl as func call because you must define the func before you
+  // call it. This is sound, because some function maybe defined but not called,
+  // thus taken into account. But that's still correct.
   auto kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_FunctionDecl) {
     func_calls_each_file.insert(getCursorSpelling(cursor));
@@ -298,24 +277,23 @@ CXChildVisitResult func_call_collect_visitor(CXCursor cursor, CXCursor parent,
   return CXChildVisit_Recurse;
 }
 
-void parse_file(const char *path, VISITOR visitor, void *client_data) {
+void parse_file(const FileContext &file_ctx, VISITOR visitor) {
   CXIndex index = clang_createIndex(0, 0);
-  g_filepath = path;
   const char *args[] = {
       //   "-E"
   };
   CXTranslationUnit unit = clang_parseTranslationUnit(
-      index, path, args, sizeof(args) / sizeof(*args), nullptr, 0,
-      CXTranslationUnit_None);
+      index, file_ctx.file_path.c_str(), args, sizeof(args) / sizeof(*args),
+      nullptr, 0, CXTranslationUnit_None);
 
-  g_unit = &unit;
   if (unit == nullptr) {
-    std::cerr << "Unable to parse translation unit: " << path << std::endl;
+    std::cerr << "Unable to parse translation unit: " << file_ctx.file_path
+              << std::endl;
     return;
   }
 
   CXCursor cursor = clang_getTranslationUnitCursor(unit);
-  clang_visitChildren(cursor, visitor, client_data);
+  clang_visitChildren(cursor, visitor, (void *)&file_ctx);
 
   clang_disposeTranslationUnit(unit);
   clang_disposeIndex(index);

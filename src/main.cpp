@@ -3,6 +3,11 @@
 
 #include "fs.h"
 #include "parser.h"
+
+constexpr auto SKIP_COPY_OPTION = std::filesystem::copy_options::skip_existing;
+constexpr auto DIRECTORY_COPY_OPTION =
+    std::filesystem::copy_options::recursive |
+    std::filesystem::copy_options::overwrite_existing;
 void generate_secgear(const std::filesystem::path project_root) {
 
   std::filesystem::path generated_path("generated");
@@ -39,12 +44,13 @@ void generate_secgear(const std::filesystem::path project_root) {
   for_each_file_in_path_recursive(
       insecure_root,
       [&](const auto &insecure_file) {
-        if (!is_source_file(insecure_file.path())) {
+        const auto insecure_file_path = insecure_file.path();
+        if (!is_source_file(insecure_file_path)) {
           return;
         }
         // parse insecure file to collect func calls
-        parse_file(insecure_file.path().c_str(), func_call_collect_visitor,
-                   nullptr);
+        FileContext f_ctx{.file_path = insecure_file_path.string()};
+        parse_file(f_ctx, func_call_collect_visitor);
         func_calls_in_insecure_world.insert(func_calls_each_file.begin(),
                                             func_calls_each_file.end());
         func_calls_each_file.clear();
@@ -54,12 +60,14 @@ void generate_secgear(const std::filesystem::path project_root) {
   for_each_file_in_path_recursive(
       secure_root,
       [&](const auto &secure_file) {
-        if (!is_source_file(secure_file.path())) {
+        const auto secure_file_path = secure_file.path();
+
+        if (!is_source_file(secure_file_path)) {
           return;
         }
         // parse secure file to collect func calls
-        parse_file(secure_file.path().c_str(), func_call_collect_visitor,
-                   nullptr);
+        FileContext f_ctx{.file_path = secure_file_path.string()};
+        parse_file(f_ctx, func_call_collect_visitor);
         func_calls_in_secure_world.insert(func_calls_each_file.begin(),
                                           func_calls_each_file.end());
         func_calls_each_file.clear();
@@ -71,21 +79,22 @@ void generate_secgear(const std::filesystem::path project_root) {
       [&](const auto &secure_func_file) {
         const auto secure_func_filepath = secure_func_file.path();
 
-        if (!is_source_file(secure_func_file.path())) {
+        if (!is_source_file(secure_func_filepath)) {
           return;
         }
         // collect all secure entry func definition in secure func file
-        parse_file(secure_func_filepath.c_str(),
-                   secure_world_entry_func_def_collect_visitor, nullptr);
+        FileContext f_ctx{.file_path = secure_func_filepath.string()};
+        parse_file(f_ctx, secure_world_entry_func_def_collect_visitor);
 
-        // not contain definition of secure entry func
+        // if the secure file doesn't contain definition of secure entry func,
+        // then it's just a normal file, e.g. header file
         if (func_list_each_file.empty()) {
           const auto new_path =
               generated_enclave /
               (secure_func_filepath.lexically_relative(project_root));
           std::filesystem::create_directories(new_path.parent_path());
 
-          // simply copy no-def file to enclave
+          // simply copy no-def file to enclave, cause it maybe needed.
           std::filesystem::copy_file(
               secure_func_filepath, new_path,
               std::filesystem::copy_options::overwrite_existing);
@@ -113,12 +122,13 @@ void generate_secgear(const std::filesystem::path project_root) {
   for_each_file_in_path_recursive(
       insecure_root,
       [&](const auto &insecure_func_file) {
-        if (!is_source_file(insecure_func_file.path())) {
+        const auto insecure_func_filepath = insecure_func_file.path();
+        if (!is_source_file(insecure_func_filepath)) {
           return;
         }
-        const auto insecure_func_filepath = insecure_func_file.path();
-        parse_file(insecure_func_filepath.c_str(),
-                   insecure_world_entry_func_def_collect_visitor, nullptr);
+
+        FileContext f_ctx{.file_path = insecure_func_filepath.string()};
+        parse_file(f_ctx, insecure_world_entry_func_def_collect_visitor);
 
         // not contain definition of insecure entry func
         if (func_list_each_file.empty()) {
@@ -141,51 +151,18 @@ void generate_secgear(const std::filesystem::path project_root) {
       },
       skip_dir);
 
+  // process project level template now
   if (std::filesystem::exists(insecure_root_cmake_path)) {
     ctx.root_cmake = read_file_content(insecure_root_cmake_path);
   }
+
   if (std::filesystem::exists(secure_root_cmake_path)) {
     ctx.host_secure_cmake = read_file_content(secure_root_cmake_path);
   }
 
   for_each_file_in_path_recursive(project_template_path, [&](const auto &f) {
     std::ifstream ifs(f.path());
-
     process_template(ifs, ctx);
-  });
-
-  // replace_case_insensitive(generated_host / INSECURE / "CMakeLists.txt",
-  //                          "add_executable", "tee_add_executable");
-  replace_case_insensitive(generated_host / SECURE / "CMakeLists.txt",
-                           "add_library", "tee_add_library");
-
-  /* // copy normal files to host */
-  /* for_each_file_in_dir(project_root, [&](const auto &f) { */
-  /*   const auto new_path = */
-  /*       generated_host / f.path().lexically_relative(project_root); */
-  /*   std::filesystem::copy_options op; */
-  /*   op |= std::filesystem::copy_options::skip_existing; */
-  /*   std::filesystem::copy_file(f.path(), new_path, op); */
-  /* }); */
-
-  // copy remaining files in secure world to host
-  for_each_file_in_path_recursive(secure_root, [&](const auto &f) {
-    const auto new_path =
-        generated_host / f.path().lexically_relative(project_root);
-    std::filesystem::create_directories(new_path.parent_path());
-    std::filesystem::copy_options op;
-    op |= std::filesystem::copy_options::skip_existing;
-    std::filesystem::copy_file(f.path(), new_path, op);
-  });
-
-  // copy remaining files in insecure world to host
-  for_each_file_in_path_recursive(insecure_root, [&](const auto &f) {
-    const auto new_path =
-        generated_host / f.path().lexically_relative(project_root);
-    std::filesystem::create_directories(new_path.parent_path());
-    std::filesystem::copy_options op;
-    op |= std::filesystem::copy_options::skip_existing;
-    std::filesystem::copy_file(f.path(), new_path, op);
   });
 
   // copy remaining files in secure world to enclave
@@ -195,13 +172,12 @@ void generate_secgear(const std::filesystem::path project_root) {
         const auto new_path =
             generated_enclave / f.path().lexically_relative(project_root);
         std::filesystem::create_directories(new_path.parent_path());
-        std::filesystem::copy_options op;
-        op |= std::filesystem::copy_options::skip_existing;
-        std::filesystem::copy_file(f.path(), new_path, op);
+        std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION);
       },
       skip_dir);
 
-  // copy headers in insecure world to enclave
+  // copy headers in insecure world to enclave, cause insecure world can include
+  // them
   for_each_file_in_path_recursive(insecure_root, [&](const auto &f) {
     if (!(f.path().extension() == ".h")) {
       return;
@@ -209,9 +185,7 @@ void generate_secgear(const std::filesystem::path project_root) {
     const auto new_path =
         generated_enclave / f.path().lexically_relative(project_root);
     std::filesystem::create_directories(new_path.parent_path());
-    std::filesystem::copy_options op;
-    op |= std::filesystem::copy_options::skip_existing;
-    std::filesystem::copy_file(f.path(), new_path, op);
+    std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION);
   });
 
   // copy enclave libs
@@ -222,10 +196,8 @@ void generate_secgear(const std::filesystem::path project_root) {
       const auto relative_path =
           f.path().lexically_relative(project_secure_lib);
 
-      std::filesystem::copy(
-          f.path(), generated_enclave_lib / relative_path,
-          std::filesystem::copy_options::recursive |
-              std::filesystem::copy_options::overwrite_existing);
+      std::filesystem::copy(f.path(), generated_enclave_lib / relative_path,
+                            DIRECTORY_COPY_OPTION);
     }
   }
 
@@ -237,22 +209,37 @@ void generate_secgear(const std::filesystem::path project_root) {
       const auto relative_path =
           f.path().lexically_relative(project_secure_include);
 
-      std::filesystem::copy(
-          f.path(), generated_enclave_include / relative_path,
-          std::filesystem::copy_options::recursive |
-              std::filesystem::copy_options::overwrite_existing);
+      std::filesystem::copy(f.path(), generated_enclave_include / relative_path,
+                            DIRECTORY_COPY_OPTION);
     }
   }
+
+  /* // copy remaining files in secure world to host */
+  /* for_each_file_in_path_recursive(secure_root, [&](const auto &f) { */
+  /*   const auto new_path = */
+  /*       generated_host / f.path().lexically_relative(project_root); */
+  /*   std::filesystem::create_directories(new_path.parent_path()); */
+  /*   std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION); */
+  /* }); */
+  /**/
+  /* // copy remaining files in insecure world to host */
+  /* for_each_file_in_path_recursive(insecure_root, [&](const auto &f) { */
+  /*   const auto new_path = */
+  /*       generated_host / f.path().lexically_relative(project_root); */
+  /*   std::filesystem::create_directories(new_path.parent_path()); */
+  /*   std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION); */
+  /* }); */
 
   // copy remaining files in project root to host
   for_each_file_in_path_recursive(project_root, [&](const auto &f) {
     const auto new_path =
         generated_host / f.path().lexically_relative(project_root);
     std::filesystem::create_directories(new_path.parent_path());
-    std::filesystem::copy_options op;
-    op |= std::filesystem::copy_options::skip_existing;
-    std::filesystem::copy_file(f.path(), new_path, op);
+    std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION);
   });
+
+  replace_case_insensitive(generated_host / SECURE / "CMakeLists.txt",
+                           "add_library", "tee_add_library");
 }
 
 // 主函数
