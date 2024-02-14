@@ -2,6 +2,7 @@
 
 #include "template.h"
 #include <clang-c/Index.h>
+#include <mutex>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -47,13 +48,17 @@ CXChildVisitResult
 secure_world_entry_func_def_collect_visitor(CXCursor cursor, CXCursor parent,
                                             CXClientData clientData);
 
-// each template will generate one file
-void process_template(std::ifstream &ifs, const SourceContext &ctx);
+inline std::mutex for_each_file_mutex;
 
-inline std::vector<FunctionInfo> func_list_each_file;
-inline std::vector<FunctionInfo> secure_entry_func_list;
-inline std::vector<FunctionInfo> insecure_entry_func_list;
+inline thread_local std::vector<FunctionInfo> tls_func_list_each_file;
+inline thread_local std::vector<FunctionInfo> tls_secure_entry_func_list;
+inline thread_local std::vector<FunctionInfo> tls_insecure_entry_func_list;
+inline std::vector<FunctionInfo> g_secure_entry_func_list;
+inline std::vector<FunctionInfo> g_insecure_entry_func_list;
 using FuncName = std::string;
-inline std::unordered_set<FuncName> func_calls_in_insecure_world;
-inline std::unordered_set<FuncName> func_calls_in_secure_world;
-inline std::unordered_set<FuncName> func_calls_each_file;
+inline thread_local std::unordered_set<FuncName> tls_func_calls_each_file;
+inline thread_local std::unordered_set<FuncName>
+    tls_func_calls_in_insecure_world;
+inline thread_local std::unordered_set<FuncName> tls_func_calls_in_secure_world;
+inline std::unordered_set<FuncName> g_func_calls_in_insecure_world;
+inline std::unordered_set<FuncName> g_func_calls_in_secure_world;

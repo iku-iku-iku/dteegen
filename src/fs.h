@@ -64,15 +64,16 @@ void for_each_file_in_path_recursive(
 
 template <typename VISITOR>
 void for_each_file_in_path_recursive_parallel(
-    const std::filesystem::path &path, VISITOR visitor,
-    const std::unordered_set<std::string> &skip_dirs = {}) {
+    const std::filesystem::path &path, VISITOR &&visitor,
+    const std::unordered_set<std::string> &skip_dirs, ThreadPool &pool) {
+  /* return for_each_file_in_path_recursive(path, visitor, skip_dirs); */
   /* ASSERT(std::filesystem::is_directory(path), "not a directory"); */
-  ThreadPool pool(4);
 
   for_each_in_dir(path, [&](const auto &entry) {
     if (entry.is_directory()) {
       if (skip_dirs.find(entry.path().filename()) == skip_dirs.end()) {
-        for_each_file_in_path_recursive(entry.path(), visitor, skip_dirs);
+        for_each_file_in_path_recursive_parallel(entry.path(), visitor,
+                                                 skip_dirs, pool);
       }
       return;
     }

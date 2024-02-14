@@ -3,6 +3,16 @@
 
 #include "fs.h"
 #include "parser.h"
+#include <filesystem>
+
+const auto relative_path(const std::string &path, const std::string &base) {
+  const auto n = path.size(), m = base.size();
+  return path.substr(m + 1, n - m);
+}
+#define TEMPLATE "template"
+#define SECURE_FUNC_TEMPLATE_PATH (TEMPLATE "/secure_func_template")
+#define INSECURE_FUNC_TEMPLATE_PATH (TEMPLATE "/insecure_func_template")
+#define PROJECT_TEMPLATE_PATH (TEMPLATE "/project_template")
 
 constexpr auto SKIP_COPY_OPTION = std::filesystem::copy_options::skip_existing;
 constexpr auto DIRECTORY_COPY_OPTION =
@@ -11,7 +21,7 @@ constexpr auto DIRECTORY_COPY_OPTION =
 void generate_secgear(const std::filesystem::path project_root) {
 
   std::filesystem::path generated_path("generated");
-  std::filesystem::path template_path("template");
+  const auto template_path = std::filesystem::path(TEMPLATE);
   const auto generated_host = generated_path / HOST;
   const auto generated_enclave = generated_path / ENCLAVE;
   const auto secure_root = project_root / SECURE;
@@ -41,7 +51,9 @@ void generate_secgear(const std::filesystem::path project_root) {
   // This assumption will not omit 'true call'
   std::unordered_set<std::string> skip_dir = {"secure_lib", "secure_include"};
 
-  for_each_file_in_path_recursive(
+  ThreadPool pool(4);
+
+  for_each_file_in_path_recursive_parallel(
       insecure_root,
       [&](const auto &insecure_file) {
         const auto insecure_file_path = insecure_file.path();
@@ -51,13 +63,15 @@ void generate_secgear(const std::filesystem::path project_root) {
         // parse insecure file to collect func calls
         FileContext f_ctx{.file_path = insecure_file_path.string()};
         parse_file(f_ctx, func_call_collect_visitor);
-        func_calls_in_insecure_world.insert(func_calls_each_file.begin(),
-                                            func_calls_each_file.end());
-        func_calls_each_file.clear();
-      },
-      skip_dir);
 
-  for_each_file_in_path_recursive(
+        tls_func_calls_in_insecure_world.insert(
+            tls_func_calls_each_file.begin(), tls_func_calls_each_file.end());
+
+        tls_func_calls_each_file.clear();
+      },
+      skip_dir, pool);
+
+  for_each_file_in_path_recursive_parallel(
       secure_root,
       [&](const auto &secure_file) {
         const auto secure_file_path = secure_file.path();
@@ -68,60 +82,60 @@ void generate_secgear(const std::filesystem::path project_root) {
         // parse secure file to collect func calls
         FileContext f_ctx{.file_path = secure_file_path.string()};
         parse_file(f_ctx, func_call_collect_visitor);
-        func_calls_in_secure_world.insert(func_calls_each_file.begin(),
-                                          func_calls_each_file.end());
-        func_calls_each_file.clear();
+
+        tls_func_calls_in_secure_world.insert(tls_func_calls_each_file.begin(),
+                                              tls_func_calls_each_file.end());
+        tls_func_calls_each_file.clear();
       },
-      skip_dir);
+      skip_dir, pool);
 
-  for_each_file_in_path_recursive(
-      secure_root,
-      [&](const auto &secure_func_file) {
-        const auto secure_func_filepath = secure_func_file.path();
+  pool.wait_queue_empty();
 
-        if (!is_source_file(secure_func_filepath)) {
-          return;
-        }
-        // collect all secure entry func definition in secure func file
-        FileContext f_ctx{.file_path = secure_func_filepath.string()};
-        parse_file(f_ctx, secure_world_entry_func_def_collect_visitor);
+  std::mutex fs_mutex;
+  const auto normalized_project_root =
+      std::filesystem::absolute(project_root).string();
+  /* [&]() { std::cout << "E" << secure_root_cmake_path << std::endl; }(); */
+  const auto process_secure_file = [&,
+                                    project_root](const auto secure_func_file) {
+    const auto secure_func_filepath = secure_func_file.path();
+    if (!is_source_file(secure_func_filepath)) {
+      return;
+    }
+    // collect all secure entry func definition in secure func file
+    FileContext f_ctx{.file_path = secure_func_filepath.string()};
+    parse_file(f_ctx, secure_world_entry_func_def_collect_visitor);
 
-        // if the secure file doesn't contain definition of secure entry func,
-        // then it's just a normal file, e.g. header file
-        if (func_list_each_file.empty()) {
-          const auto new_path =
-              generated_enclave /
-              (secure_func_filepath.lexically_relative(project_root));
-          std::filesystem::create_directories(new_path.parent_path());
+    // if the secure file doesn't contain definition of secure entry func,
+    // then it's just a normal file, e.g. header file
+    if (tls_func_list_each_file.empty()) {
+      /* const auto new_path = */
+      /*     generated_enclave / */
+      /*     (secure_func_filepath.lexically_relative(project_root)); */
+      /* std::filesystem::create_directories(new_path.parent_path()); */
+      /**/
+      /* // simply copy no-def file to enclave, cause it maybe needed. */
+      /* std::filesystem::copy_file( */
+      /*     secure_func_filepath, new_path, */
+      /*     std::filesystem::copy_options::overwrite_existing); */
+      return;
+    }
 
-          // simply copy no-def file to enclave, cause it maybe needed.
-          std::filesystem::copy_file(
-              secure_func_filepath, new_path,
-              std::filesystem::copy_options::overwrite_existing);
-          return;
-        }
+    ctx.src_path = relative_path(secure_func_filepath, project_root);
+    ctx.src_content = read_file_content(secure_func_filepath);
 
-        ctx.src_path = secure_func_filepath.lexically_relative(project_root);
-        ctx.src_content = read_file_content(secure_func_filepath);
+    // process secure func template for funcs in this file
+    for_each_file_in_path_recursive(
+        secure_func_template_path,
+        [&](const auto &e) { generate_with_template(e.path(), ctx); });
 
-        // process secure func template for funcs in this file
-        for_each_file_in_path_recursive(secure_func_template_path,
-                                        [&](const auto &e) {
-                                          std::ifstream ifs(e.path());
+    tls_secure_entry_func_list.insert(tls_secure_entry_func_list.end(),
+                                      tls_func_list_each_file.begin(),
+                                      tls_func_list_each_file.end());
+    tls_func_list_each_file.clear();
+  };
 
-                                          process_template(ifs, ctx);
-                                        });
-
-        secure_entry_func_list.insert(secure_entry_func_list.end(),
-                                      func_list_each_file.begin(),
-                                      func_list_each_file.end());
-        func_list_each_file.clear();
-      },
-      skip_dir);
-
-  for_each_file_in_path_recursive(
-      insecure_root,
-      [&](const auto &insecure_func_file) {
+  const auto process_insecure_file =
+      [&, project_root](const auto &insecure_func_file) {
         const auto insecure_func_filepath = insecure_func_file.path();
         if (!is_source_file(insecure_func_filepath)) {
           return;
@@ -131,25 +145,30 @@ void generate_secgear(const std::filesystem::path project_root) {
         parse_file(f_ctx, insecure_world_entry_func_def_collect_visitor);
 
         // not contain definition of insecure entry func
-        if (func_list_each_file.empty()) {
+        if (tls_func_list_each_file.empty()) {
           return;
         }
 
-        ctx.src_path = insecure_func_filepath.lexically_relative(project_root);
+        ctx.src_path = relative_path(insecure_func_filepath, project_root);
         ctx.src_content = read_file_content(insecure_func_filepath);
 
-        for_each_file_in_path_recursive(insecure_func_template_path,
-                                        [&](const auto &e) {
-                                          std::ifstream ifs(e.path());
-                                          process_template(ifs, ctx);
-                                        });
+        for_each_file_in_path_recursive(
+            insecure_func_template_path,
+            [&](const auto &e) { generate_with_template(e.path(), ctx); });
 
-        insecure_entry_func_list.insert(insecure_entry_func_list.end(),
-                                        func_list_each_file.begin(),
-                                        func_list_each_file.end());
-        func_list_each_file.clear();
-      },
-      skip_dir);
+        tls_insecure_entry_func_list.insert(tls_insecure_entry_func_list.end(),
+                                            tls_func_list_each_file.begin(),
+                                            tls_func_list_each_file.end());
+        tls_func_list_each_file.clear();
+      };
+
+  for_each_file_in_path_recursive_parallel(secure_root, process_secure_file,
+                                           skip_dir, pool);
+
+  for_each_file_in_path_recursive_parallel(insecure_root, process_insecure_file,
+                                           skip_dir, pool);
+
+  pool.wait_queue_empty();
 
   // process project level template now
   if (std::filesystem::exists(insecure_root_cmake_path)) {
@@ -161,8 +180,7 @@ void generate_secgear(const std::filesystem::path project_root) {
   }
 
   for_each_file_in_path_recursive(project_template_path, [&](const auto &f) {
-    std::ifstream ifs(f.path());
-    process_template(ifs, ctx);
+    generate_with_template(f.path(), ctx);
   });
 
   // copy remaining files in secure world to enclave

@@ -16,3 +16,9 @@ struct SourceContext {
 };
 
 std::string parse_template(const std::string &templ, const SourceContext &ctx);
+
+/// @breif each template will generate one file
+/// @param ifs input file stream of template file
+/// @param context used to replace fields in the template
+void generate_with_template(const std::filesystem::path &template_path,
+                            const SourceContext &ctx);

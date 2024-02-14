@@ -1,71 +1,9 @@
-#include "fs.h"
 #include "pch.h"
+
+#include "fs.h"
+#include "parser.h"
 #include "clang-c/CXString.h"
 #include "clang-c/Index.h"
-
-#include "parser.h"
-
-template <bool WithType, bool IsEDL, bool WithCommaAhead>
-std::string get_params_str(const std::vector<Param> &params) {
-  std::stringstream ss;
-  bool flag = false;
-
-  // if without type, the params will be used after other params
-  for (const auto &param : params) {
-    if constexpr (!WithCommaAhead) {
-      if (flag) {
-        ss << ", ";
-      }
-    } else {
-      ss << ", ";
-    }
-    if constexpr (IsEDL) {
-      if (param.is_array || param.is_ptr) {
-        ss << "[";
-        if (param.is_in && !param.is_out) {
-          ss << "in";
-        } else if (!param.is_in && param.is_out) {
-          ss << "out";
-        } else {
-          ss << "in, out";
-        }
-        ss << ", size=";
-        if (param.is_ptr) {
-          ss << param.name << "_len";
-        } else {
-          ASSERT(param.array_size >= 0, "param size < 0");
-          ss << param.array_size;
-        }
-        ss << "] ";
-      }
-    }
-    if constexpr (WithType) {
-      ss << param.type << " " << param.name;
-    } else {
-      ss << param.name;
-    }
-    if constexpr (!WithCommaAhead) {
-      flag = true;
-    }
-  }
-  return ss.str();
-}
-
-std::string get_params(const std::vector<Param> &params) {
-  return get_params_str<true, false, false>(params);
-}
-
-std::string get_comma_params(const std::vector<Param> &params) {
-  return get_params_str<true, false, true>(params);
-}
-
-std::string get_comma_param_names(const std::vector<Param> &params) {
-  return get_params_str<false, false, true>(params);
-}
-
-std::string get_edl_params(const std::vector<Param> &params) {
-  return get_params_str<true, true, false>(params);
-}
 
 std::string getCursorSpelling(const CXCursor &cursor) {
   CXString cxStr = clang_getCursorSpelling(cursor);
@@ -222,9 +160,9 @@ entry_func_def_collect_visitor(const CXCursor &cursor, const CXCursor &parent,
 
     // the def must be called in another world to be an entry
     if constexpr (world_type_visited == WorldType::SECURE_WORLD) {
-      is_def_valid = func_calls_in_insecure_world.count(func_name) != 0;
+      is_def_valid = g_func_calls_in_insecure_world.count(func_name) != 0;
     } else {
-      is_def_valid = func_calls_in_secure_world.count(func_name) != 0;
+      is_def_valid = g_func_calls_in_secure_world.count(func_name) != 0;
     }
 
     // insecure world can't call a static secure func in secure world!
@@ -238,7 +176,7 @@ entry_func_def_collect_visitor(const CXCursor &cursor, const CXCursor &parent,
 
       // if body is not empty, then it is a definition
       if (!funcInfo.body.empty()) {
-        func_list_each_file.push_back(std::move(funcInfo));
+        tls_func_list_each_file.push_back(std::move(funcInfo));
       }
     }
   }
@@ -266,105 +204,69 @@ CXChildVisitResult func_call_collect_visitor(CXCursor cursor, CXCursor parent,
   // thus taken into account. But that's still correct.
   auto kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_FunctionDecl) {
-    func_calls_each_file.insert(getCursorSpelling(cursor));
+    tls_func_calls_each_file.insert(getCursorSpelling(cursor));
   }
   if (kind == CXCursor_CallExpr) {
     cursor = clang_getCursorReferenced(cursor);
     if (clang_getCursorKind(cursor) == CXCursor_FunctionDecl) {
-      func_calls_each_file.insert(getCursorSpelling(cursor));
+      tls_func_calls_each_file.insert(getCursorSpelling(cursor));
     }
   }
   return CXChildVisit_Recurse;
 }
 
-void parse_file(const FileContext &file_ctx, VISITOR visitor) {
-  CXIndex index = clang_createIndex(0, 0);
-  const char *args[] = {
-      //   "-E"
-  };
-  CXTranslationUnit unit = clang_parseTranslationUnit(
-      index, file_ctx.file_path.c_str(), args, sizeof(args) / sizeof(*args),
-      nullptr, 0, CXTranslationUnit_None);
-
-  if (unit == nullptr) {
-    std::cerr << "Unable to parse translation unit: " << file_ctx.file_path
-              << std::endl;
-    return;
-  }
-
-  CXCursor cursor = clang_getTranslationUnitCursor(unit);
-  clang_visitChildren(cursor, visitor, (void *)&file_ctx);
-
-  clang_disposeTranslationUnit(unit);
-  clang_disposeIndex(index);
-}
-
-std::string get_filepath(std::ifstream &ifs, const SourceContext &ctx) {
-  assert(ifs);
-  std::string label, filepath;
-  ifs >> label;
-  assert(label == "path:");
-
-  ifs >> filepath;
-  return parse_template(filepath, ctx);
-}
-
-std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
-  assert(ifs);
-  std::string line;
-  std::stringstream ss;
-  bool multi_template = false;
-  bool global = false;
-  bool insecure = false;
-  std::vector<std::string> lines;
-  while (std::getline(ifs, line)) {
-    if (line.find("**begin**") != std::string::npos) {
-      multi_template = true;
-      continue;
-    } else if (line.find("**gbegin**") != std::string::npos) {
-      multi_template = true;
-      global = true;
-      continue;
-    } else if (line.find("**igbegin**") != std::string::npos) {
-      multi_template = true;
-      global = true;
-      insecure = true;
-      continue;
-    } else if (line.find("**end**") != std::string::npos) {
-
-      SourceContext each_ctx = ctx;
-
-      const auto &list = global ? (insecure ? insecure_entry_func_list
-                                            : secure_entry_func_list)
-                                : func_list_each_file;
-
-      for (const auto &func : list) {
-        each_ctx.func_name = func.name;
-        each_ctx.params = get_params(func.parameters);
-        each_ctx.comma_params = get_comma_params(func.parameters);
-        each_ctx.comma_param_names = get_comma_param_names(func.parameters);
-        each_ctx.edl_params = get_edl_params(func.parameters);
-        each_ctx.ret = func.returnType;
-
-        for (const auto &line : lines) {
-          ss << parse_template(line, each_ctx) << std::endl;
-        }
+struct TranslationUnitManager {
+  CXCursor get_cursor(const std::string &file_path) {
+    {
+      std::shared_lock<std::shared_mutex> lock(rw_mutex);
+      auto it = map.find(file_path);
+      if (it != map.end()) {
+        return clang_getTranslationUnitCursor(it->second.second);
       }
-
-      lines.clear();
-
-      multi_template = false;
-      global = false;
-      insecure = false;
-      continue;
     }
-    if (multi_template) {
-      lines.push_back(std::move(line));
-    } else {
-      ss << parse_template(std::move(line), ctx) << std::endl;
+
+    CXIndex index = clang_createIndex(0, 0);
+    const char *args[] = {
+        //   "-E"
+    };
+    CXTranslationUnit unit = clang_parseTranslationUnit(
+        index, file_path.c_str(), args, sizeof(args) / sizeof(*args), nullptr,
+        0, CXTranslationUnit_None);
+
+    if (unit == nullptr) {
+      std::cerr << "Unable to parse translation unit: " << file_path
+                << std::endl;
+      return {};
+    }
+
+    std::scoped_lock<std::shared_mutex> lock(rw_mutex);
+    auto it = map.find(file_path);
+    if (it != map.end()) {
+      return clang_getTranslationUnitCursor(it->second.second);
+    }
+
+    map.emplace(file_path, std::make_pair(index, unit));
+
+    CXCursor cursor = clang_getTranslationUnitCursor(map[file_path].second);
+    return cursor;
+  }
+
+  ~TranslationUnitManager() {
+    for (auto &[_, pair] : map) {
+      /* clang_disposeTranslationUnit(pair.second); */
+      /* clang_disposeIndex(pair.first); */
     }
   }
-  return ss.str();
+
+  std::shared_mutex rw_mutex;
+  std::unordered_map<std::string, std::pair<CXIndex, CXTranslationUnit>> map;
+
+} manager;
+
+void parse_file(const FileContext &file_ctx, VISITOR visitor) {
+  CXCursor cursor = manager.get_cursor(file_ctx.file_path.c_str());
+
+  clang_visitChildren(cursor, visitor, (void *)&file_ctx);
 }
 
 std::string read_file_content(const std::string &filename) {
@@ -372,15 +274,4 @@ std::string read_file_content(const std::string &filename) {
   std::stringstream ss;
   ss << ifs.rdbuf();
   return ss.str();
-}
-
-void process_template(std::ifstream &ifs, const SourceContext &ctx) {
-  const auto filepath = get_filepath(ifs, ctx);
-  const auto content = get_content(ifs, ctx);
-
-  const auto path = std::filesystem::path("./generated") / filepath;
-  std::cout << "GENERATED:" << path << std::endl;
-  std::filesystem::create_directories(path.parent_path());
-  std::ofstream ofs(path);
-  ofs << content;
 }
