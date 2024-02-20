@@ -1,4 +1,4 @@
-build
+*build*
 .vscode
 .idea
 .cache
@@ -20,3 +20,7 @@ opencv_demo
 secGear
 build_deps
 TEE-Capability
+*out
+callgrind*
+*.svg
+*.data*

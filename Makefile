@@ -1,4 +1,4 @@
-.PHONY: all debug clean deploy generate test_project generate_cpp build_in_docker docker build_compile_deps build_docker build_target build_target_raw
+.PHONY: all debug clean perf deploy generate test_project generate_cpp build_in_docker docker build_compile_deps build_docker run_docker build_target build_target_raw
 
 all:
 	./scripts/build_codegen.sh release
@@ -8,6 +8,9 @@ debug:
 
 clean:
 	rm -rf build
+
+perf:
+	sudo perf record --call-graph dwarf ./build/codegen ./test/test_seal
 
 generate: all
 	./build/codegen test_project
@@ -31,7 +34,10 @@ docker:
 	bash ./scripts/update_docker_deps.sh
 	docker build -t rv-secgear .
 build_docker:
-	docker build -t rv-secgear .
+	docker build --network=host -t rv-secgear .
+run_docker:
+	docker run -v $(shell pwd):/test -v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static --network=host -w /test -it rv-secgear
+
 
 build_target: 
 	@echo "Building $(TARGET)"

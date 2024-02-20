@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y \
 strace \
     build-essential \
     cmake \
+    llvm \
+    clang \
+    libclang-dev \
     # ocaml \
     # ocaml-dune \
     git \
@@ -18,7 +21,10 @@ strace \
 COPY libjustworkaround.a /usr/lib
 COPY libunwind.a /usr/lib
 
+COPY build/codegen /usr/bin/dteegen
 COPY codegen /usr/bin
+RUN mkdir -p /workspace/dteegen
+COPY template /workspace/dteegen/template
 
 # WORKDIR /root
 # COPY opam.tar.gz /root

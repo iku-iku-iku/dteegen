@@ -13,10 +13,6 @@ ${host_secure_cmake}
 
 #set auto code prefix
 set(PREFIX ${project})
-#set host exec name
-#set host ${src} code
-#set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
-#file(GLOB_RECURSE SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
 #set auto code
 if(CC_GP)
