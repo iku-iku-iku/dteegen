@@ -21,7 +21,7 @@ strace \
 COPY libjustworkaround.a /usr/lib
 COPY libunwind.a /usr/lib
 
-COPY build/codegen /usr/bin/dteegen
+COPY build/dteegen /usr/bin/dteegen
 COPY codegen /usr/bin
 RUN mkdir -p /workspace/dteegen
 COPY template /workspace/dteegen/template

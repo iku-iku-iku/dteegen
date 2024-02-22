@@ -256,12 +256,13 @@ std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
 }
 
 void generate_with_template(const std::filesystem::path &template_path,
-                            const SourceContext &ctx) {
+                            const SourceContext &ctx,
+                            const std::filesystem::path &target_path) {
   std::ifstream ifs(template_path);
   const auto filepath = get_filepath(ifs, ctx);
   const auto content = get_content(ifs, ctx);
 
-  const auto path = std::filesystem::path("./generated") / filepath;
+  const auto path = target_path / filepath;
   std::cout << "GENERATED:" << path << std::endl;
   std::filesystem::create_directories(path.parent_path());
   std::ofstream ofs(path);

@@ -28,8 +28,8 @@ docker run -v "$PROJECT_DIR:/workspace/dteegen/$PROJECT_NAME" \
 	-v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static \
 	-w /workspace/dteegen -it $IMAGE_NAME /bin/bash -c "
     export PATH=/root/.opam/4.12.0/bin:\$PATH:/workspace/secGear/debug &&
-    echo 'dteegen $PROJECT_NAME' &&
-    dteegen $PROJECT_NAME &&
+    echo 'dteegen convert $PROJECT_NAME' &&
+    dteegen convert $PROJECT_NAME &&
     mkdir -p /workspace/secGear/examples/generated && 
     cp -r generated/* /workspace/secGear/examples/generated &&
     cd /workspace/secGear/debug &&

@@ -5,9 +5,9 @@ if [ $# -ne 1 ]; then
 	exit 1
 fi
 
-CODEGEN=./build/codegen
+CODEGEN=./build/dteegen
 
-$CODEGEN $1
+$CODEGEN convert $1
 
 if [ -d $1.generated ]; then
 	mv $1.generated/build generated

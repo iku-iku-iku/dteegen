@@ -3,6 +3,7 @@
 
 #include "fs.h"
 #include "parser.h"
+#include "template.h"
 #include <filesystem>
 
 const auto relative_path(const std::string &path, const std::string &base) {
@@ -13,6 +14,7 @@ const auto relative_path(const std::string &path, const std::string &base) {
 #define SECURE_FUNC_TEMPLATE_PATH (TEMPLATE "/secure_func_template")
 #define INSECURE_FUNC_TEMPLATE_PATH (TEMPLATE "/insecure_func_template")
 #define PROJECT_TEMPLATE_PATH (TEMPLATE "/project_template")
+#define TEMPLATE_PROJECT_PATH (TEMPLATE "/template_project")
 
 constexpr auto SKIP_COPY_OPTION = std::filesystem::copy_options::skip_existing;
 constexpr auto DIRECTORY_COPY_OPTION =
@@ -232,22 +234,6 @@ void generate_secgear(const std::filesystem::path project_root) {
     }
   }
 
-  /* // copy remaining files in secure world to host */
-  /* for_each_file_in_path_recursive(secure_root, [&](const auto &f) { */
-  /*   const auto new_path = */
-  /*       generated_host / f.path().lexically_relative(project_root); */
-  /*   std::filesystem::create_directories(new_path.parent_path()); */
-  /*   std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION); */
-  /* }); */
-  /**/
-  /* // copy remaining files in insecure world to host */
-  /* for_each_file_in_path_recursive(insecure_root, [&](const auto &f) { */
-  /*   const auto new_path = */
-  /*       generated_host / f.path().lexically_relative(project_root); */
-  /*   std::filesystem::create_directories(new_path.parent_path()); */
-  /*   std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION); */
-  /* }); */
-
   // copy remaining files in project root to host
   for_each_file_in_path_recursive(project_root, [&](const auto &f) {
     const auto new_path =
@@ -260,15 +246,40 @@ void generate_secgear(const std::filesystem::path project_root) {
                            "add_library", "tee_add_library");
 }
 
+void convert(const char *project_path) { generate_secgear(project_path); }
+void create(const char *project_path) {
+  const auto project_root = std::filesystem::path(project_path);
+  if (std::filesystem::exists(project_root)) {
+    std::cerr << "Project already exists\n";
+    return;
+  }
+
+  std::string project_name = project_root.filename();
+
+  for_each_file_in_path_recursive(TEMPLATE_PROJECT_PATH, [&](const auto &f) {
+    SourceContext ctx;
+    ctx.project = project_name;
+    generate_with_template(f.path(), ctx, project_root);
+  });
+  std::filesystem::copy(TEMPLATE_PROJECT_PATH, project_root, SKIP_COPY_OPTION);
+}
+
 // 主函数
 int main(int argc, char **argv) {
-  if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " project\n";
+  if (argc < 3) {
+    std::cerr << "Usage: " << argv[0] << " [create]/[convert]"
+              << " [project_path]\n";
     return 1;
   }
+
   // measure time
   auto start = std::chrono::high_resolution_clock::now();
-  generate_secgear(argv[1]);
+  if (!strcmp(argv[1], "create")) {
+    create(argv[2]);
+  } else if (!strcmp(argv[1], "convert")) {
+    convert(argv[2]);
+  }
+
   auto end = std::chrono::high_resolution_clock::now();
   auto time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
                   .count();

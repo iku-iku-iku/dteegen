@@ -1,3 +1,4 @@
+path: secure/secure_include/CMakeLists.txt
 set(INCLUDE_DIRS
 # NOTE: please put your include dirs here
   "${CMAKE_CURRENT_SOURCE_DIR}"

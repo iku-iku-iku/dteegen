@@ -7,4 +7,4 @@ fi
 
 CODEGEN=./build/codegen
 
-perf record --call-graph dwarf $CODEGEN $1
+perf record --call-graph dwarf $CODEGEN convert $1
