@@ -261,7 +261,14 @@ void create(const char *project_path) {
     ctx.project = project_name;
     generate_with_template(f.path(), ctx, project_root);
   });
-  std::filesystem::copy(TEMPLATE_PROJECT_PATH, project_root, SKIP_COPY_OPTION);
+
+  for_each_in_dir_recurisive(TEMPLATE_PROJECT_PATH, [&](const auto &f) {
+    const auto new_path =
+        project_root / f.path().lexically_relative(TEMPLATE_PROJECT_PATH);
+    if (f.is_directory()) {
+      std::filesystem::create_directories(new_path);
+    }
+  });
 }
 
 // 主函数

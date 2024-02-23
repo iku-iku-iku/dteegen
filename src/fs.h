@@ -32,6 +32,20 @@ void for_each_in_dir(const std::filesystem::path &path, VISITOR visitor) {
 }
 
 template <typename VISITOR>
+void for_each_in_dir_recurisive(const std::filesystem::path &path,
+                                VISITOR visitor) {
+  ASSERT(std::filesystem::is_directory(path), "%s not a directory",
+         path.string().c_str());
+
+  for (const auto &f : std::filesystem::directory_iterator(path)) {
+    visitor(f);
+    if (f.is_directory()) {
+      for_each_in_dir_recurisive(f, visitor);
+    }
+  }
+}
+
+template <typename VISITOR>
 void for_each_file_in_dir(const std::filesystem::path &path, VISITOR visitor) {
   ASSERT(std::filesystem::is_directory(path), "%s not a directory",
          path.string().c_str());
