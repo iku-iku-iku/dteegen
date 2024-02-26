@@ -13,6 +13,10 @@ struct SourceContext {
   std::string root_cmake;
   std::string host_secure_cmake;
   std::string src_path;
+
+  void show() const {
+    DTEE_LOG("SourceContext{ src_path: %s }\n", src_path.c_str());
+  }
 };
 
 std::string parse_template(const std::string &templ, const SourceContext &ctx);

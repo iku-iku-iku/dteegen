@@ -258,12 +258,14 @@ std::string get_content(std::ifstream &ifs, const SourceContext &ctx) {
 void generate_with_template(const std::filesystem::path &template_path,
                             const SourceContext &ctx,
                             const std::filesystem::path &target_path) {
+  ctx.show();
   std::ifstream ifs(template_path);
   const auto filepath = get_filepath(ifs, ctx);
   const auto content = get_content(ifs, ctx);
 
   const auto path = target_path / filepath;
-  std::cout << "GENERATED:" << path << std::endl;
+  DTEE_LOG("GENERATED FROM TEMPLATE: %s TO FILE: %s\n", template_path.c_str(),
+           filepath.c_str());
   std::filesystem::create_directories(path.parent_path());
   std::ofstream ofs(path);
   ofs << content;
