@@ -15,12 +15,12 @@
 
 #define BUF_LEN 1024
 
-int run()
+int run(const char* prompt)
 {
     gpt_params params;
     params.n_threads = 1;
     /* params.prompt = "<user>who are you<model>\n"; */
-    params.prompt = "<user_prompt>who are you<model_prompt>\n";
+    params.prompt = prompt;
     params.model = "qwen-model";
 
     params.seed = 691;
@@ -274,95 +274,99 @@ int run()
     }
 
     // enable interactive mode if interactive start is specified
-    if (params.interactive_first) {
-        params.interactive = true;
-    }
+    /* if (params.interactive_first) { */
+    /*     params.interactive = true; */
+    /* } */
 
-    if (params.verbose_prompt) {
-        LOG_TEE("\n");
-        LOG_TEE("%s: prompt: '%s'\n", __func__, params.prompt.c_str());
-        LOG_TEE("%s: number of tokens in prompt = %zu\n", __func__,
-                embd_inp.size());
-        for (int i = 0; i < (int)embd_inp.size(); i++) {
-            LOG_TEE("%6d -> '%s'\n", embd_inp[i],
-                    llama_token_to_piece(ctx, embd_inp[i]).c_str());
-        }
+    /* if (params.verbose_prompt) { */
+    /*     LOG_TEE("\n"); */
+    /*     LOG_TEE("%s: prompt: '%s'\n", __func__, params.prompt.c_str()); */
+    /*     LOG_TEE("%s: number of tokens in prompt = %zu\n", __func__, */
+    /*             embd_inp.size()); */
+    /*     for (int i = 0; i < (int)embd_inp.size(); i++) { */
+    /*         LOG_TEE("%6d -> '%s'\n", embd_inp[i], */
+    /*                 llama_token_to_piece(ctx, embd_inp[i]).c_str()); */
+    /*     } */
+    /**/
+    /*     if (ctx_guidance) { */
+    /*         LOG_TEE("\n"); */
+    /*         LOG_TEE("%s: negative prompt: '%s'\n", __func__, */
+    /*                 sparams.cfg_negative_prompt.c_str()); */
+    /*         LOG_TEE("%s: number of tokens in negative prompt = %zu\n",
+     * __func__, */
+    /*                 guidance_inp.size()); */
+    /*         for (int i = 0; i < (int)guidance_inp.size(); i++) { */
+    /*             LOG_TEE("%6d -> '%s'\n", guidance_inp[i], */
+    /*                     llama_token_to_piece(ctx, guidance_inp[i]).c_str());
+     */
+    /*         } */
+    /*     } */
+    /**/
+    /*     if (params.n_keep > add_bos) { */
+    /*         LOG_TEE("%s: static prompt based on n_keep: '", __func__); */
+    /*         for (int i = 0; i < params.n_keep; i++) { */
+    /*             LOG_TEE("%s", llama_token_to_piece(ctx,
+     * embd_inp[i]).c_str()); */
+    /*         } */
+    /*         LOG_TEE("'\n"); */
+    /*     } */
+    /*     LOG_TEE("\n"); */
+    /* } */
 
-        if (ctx_guidance) {
-            LOG_TEE("\n");
-            LOG_TEE("%s: negative prompt: '%s'\n", __func__,
-                    sparams.cfg_negative_prompt.c_str());
-            LOG_TEE("%s: number of tokens in negative prompt = %zu\n", __func__,
-                    guidance_inp.size());
-            for (int i = 0; i < (int)guidance_inp.size(); i++) {
-                LOG_TEE("%6d -> '%s'\n", guidance_inp[i],
-                        llama_token_to_piece(ctx, guidance_inp[i]).c_str());
-            }
-        }
-
-        if (params.n_keep > add_bos) {
-            LOG_TEE("%s: static prompt based on n_keep: '", __func__);
-            for (int i = 0; i < params.n_keep; i++) {
-                LOG_TEE("%s", llama_token_to_piece(ctx, embd_inp[i]).c_str());
-            }
-            LOG_TEE("'\n");
-        }
-        LOG_TEE("\n");
-    }
-
-    // ctrl+C handling
-    {
-    }
-
-    if (params.interactive) {
-        LOG_TEE("%s: interactive mode on.\n", __func__);
-
-        if (!params.antiprompt.empty()) {
-            for (const auto& antiprompt : params.antiprompt) {
-                LOG_TEE("Reverse prompt: '%s'\n", antiprompt.c_str());
-                if (params.verbose_prompt) {
-                    auto tmp = ::llama_tokenize(ctx, antiprompt, false, true);
-                    for (int i = 0; i < (int)tmp.size(); i++) {
-                        LOG_TEE("%6d -> '%s'\n", tmp[i],
-                                llama_token_to_piece(ctx, tmp[i]).c_str());
-                    }
-                }
-            }
-        }
-
-        if (params.input_prefix_bos) {
-            LOG_TEE("Input prefix with BOS\n");
-        }
-
-        if (!params.input_prefix.empty()) {
-            LOG_TEE("Input prefix: '%s'\n", params.input_prefix.c_str());
-            if (params.verbose_prompt) {
-                auto tmp =
-                    ::llama_tokenize(ctx, params.input_prefix, true, true);
-                for (int i = 0; i < (int)tmp.size(); i++) {
-                    LOG_TEE("%6d -> '%s'\n", tmp[i],
-                            llama_token_to_piece(ctx, tmp[i]).c_str());
-                }
-            }
-        }
-
-        if (!params.input_suffix.empty()) {
-            LOG_TEE("Input suffix: '%s'\n", params.input_suffix.c_str());
-            if (params.verbose_prompt) {
-                auto tmp =
-                    ::llama_tokenize(ctx, params.input_suffix, false, true);
-                for (int i = 0; i < (int)tmp.size(); i++) {
-                    LOG_TEE("%6d -> '%s'\n", tmp[i],
-                            llama_token_to_piece(ctx, tmp[i]).c_str());
-                }
-            }
-        }
-    }
-    LOG_TEE("sampling: \n%s\n", llama_sampling_print(sparams).c_str());
-    LOG_TEE("sampling order: \n%s\n",
-            llama_sampling_order_print(sparams).c_str());
-    LOG_TEE("generate: n_ctx = %d, n_batch = %d, n_predict = %d, n_keep = %d\n",
-            n_ctx, params.n_batch, params.n_predict, params.n_keep);
+    /* if (params.interactive) { */
+    /*     LOG_TEE("%s: interactive mode on.\n", __func__); */
+    /**/
+    /*     if (!params.antiprompt.empty()) { */
+    /*         for (const auto& antiprompt : params.antiprompt) { */
+    /*             LOG_TEE("Reverse prompt: '%s'\n", antiprompt.c_str()); */
+    /*             if (params.verbose_prompt) { */
+    /*                 auto tmp = ::llama_tokenize(ctx, antiprompt, false,
+     * true); */
+    /*                 for (int i = 0; i < (int)tmp.size(); i++) { */
+    /*                     LOG_TEE("%6d -> '%s'\n", tmp[i], */
+    /*                             llama_token_to_piece(ctx, tmp[i]).c_str());
+     */
+    /*                 } */
+    /*             } */
+    /*         } */
+    /*     } */
+    /**/
+    /*     if (params.input_prefix_bos) { */
+    /*         LOG_TEE("Input prefix with BOS\n"); */
+    /*     } */
+    /**/
+    /*     if (!params.input_prefix.empty()) { */
+    /*         LOG_TEE("Input prefix: '%s'\n", params.input_prefix.c_str()); */
+    /*         if (params.verbose_prompt) { */
+    /*             auto tmp = */
+    /*                 ::llama_tokenize(ctx, params.input_prefix, true, true);
+     */
+    /*             for (int i = 0; i < (int)tmp.size(); i++) { */
+    /*                 LOG_TEE("%6d -> '%s'\n", tmp[i], */
+    /*                         llama_token_to_piece(ctx, tmp[i]).c_str()); */
+    /*             } */
+    /*         } */
+    /*     } */
+    /**/
+    /*     if (!params.input_suffix.empty()) { */
+    /*         LOG_TEE("Input suffix: '%s'\n", params.input_suffix.c_str()); */
+    /*         if (params.verbose_prompt) { */
+    /*             auto tmp = */
+    /*                 ::llama_tokenize(ctx, params.input_suffix, false, true);
+     */
+    /*             for (int i = 0; i < (int)tmp.size(); i++) { */
+    /*                 LOG_TEE("%6d -> '%s'\n", tmp[i], */
+    /*                         llama_token_to_piece(ctx, tmp[i]).c_str()); */
+    /*             } */
+    /*         } */
+    /*     } */
+    /* } */
+    /* LOG_TEE("sampling: \n%s\n", llama_sampling_print(sparams).c_str()); */
+    /* LOG_TEE("sampling order: \n%s\n", */
+    /*         llama_sampling_order_print(sparams).c_str()); */
+    /* LOG_TEE("generate: n_ctx = %d, n_batch = %d, n_predict = %d, n_keep =
+     * %d\n", */
+    /*         n_ctx, params.n_batch, params.n_predict, params.n_keep); */
 
     // group-attention state
     // number of grouped KV tokens so far (used only if params.grp_attn_n > 1)
@@ -763,15 +767,17 @@ int run()
         }
     }
 
-    if (!path_session.empty() && params.prompt_cache_all &&
-        !params.prompt_cache_ro) {
-        LOG_TEE("\n%s: saving final output to session file '%s'\n", __func__,
-                path_session.c_str());
-        llama_save_session_file(ctx, path_session.c_str(),
-                                session_tokens.data(), session_tokens.size());
-    }
+    /* if (!path_session.empty() && params.prompt_cache_all && */
+    /*     !params.prompt_cache_ro) { */
+    /*     LOG_TEE("\n%s: saving final output to session file '%s'\n", __func__,
+     */
+    /*             path_session.c_str()); */
+    /*     llama_save_session_file(ctx, path_session.c_str(), */
+    /*                             session_tokens.data(),
+     * session_tokens.size()); */
+    /* } */
 
-    llama_print_timings(ctx);
+    /* llama_print_timings(ctx); */
 
     if (ctx_guidance) {
         llama_free(ctx_guidance);
@@ -782,16 +788,12 @@ int run()
     llama_sampling_free(ctx_sampling);
     llama_backend_free();
 
-#ifndef LOG_DISABLE_LOGS
-    LOG_TEE("Log end\n");
-#endif  // LOG_DISABLE_LOGS
-
     return 0;
 }
 
 int llm_inference(char* user_input, int user_input_len)
 {
-    run();
+    run(user_input);
     char filename[] = "model";
 
     char buf[BUF_LEN];
