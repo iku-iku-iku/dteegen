@@ -24,6 +24,7 @@ This is a normal conversation between user and assistant.<|im_end|>
 
 int main(int argc, char **argv)
 {
+    printf("OK\n");
     USED(read_file);
     std::string prompt;
     if (argc == 1) {
