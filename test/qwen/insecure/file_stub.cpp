@@ -7,9 +7,9 @@
 extern "C" size_t read_file(size_t f, size_t size, size_t n, out_char *buf,
                             int buf_len)
 {
-    printf("BEGIN READ: %lu %lu\n", size, n);
+    // printf("BEGIN READ: %lu %lu\n", size, n);
     auto res = fread(buf, size, n, reinterpret_cast<FILE *>(f));
-    printf("END READ\n");
+    // printf("END READ\n");
     return res;
 }
 

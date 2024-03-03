@@ -8,14 +8,15 @@
 std::string construct_prompt(std::string user_prompt)
 {
     std::stringstream ss;
-    ss << R"(<|im_start|>system:
-This is a normal conversation between user and assistant.<|im_end|>
-<|im_start|>user:
-)";
     ss << user_prompt;
-    ss << R"(<|im_end|>
-<|im_start|>assistant:
-)";
+    //     ss << R"(<|im_start|>system:
+    // This is a normal conversation between user and assistant.<|im_end|>
+    // <|im_start|>user:
+    // )";
+    //     ss << user_prompt;
+    //     ss << R"(<|im_end|>
+    // <|im_start|>assistant:
+    // )";
 
     return ss.str();
 }

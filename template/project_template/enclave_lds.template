@@ -20,6 +20,12 @@ SECTIONS
     *(.tbss) 
     *(.bss)
   }
+  .init_array : {
+    __init_array_start = .;
+    KEEP(*(SORT(.init_array.*)))
+    KEEP(*(.init_array))
+    __init_array_end = .;
+  }
   . = ALIGN(0x1000);
   .debug : { *(.debug) }
 
@@ -35,7 +41,7 @@ SECTIONS
   .mmap_area :
   {
     __mmap_start0 = .;
-    . = . + 1024 * 1024 * 200;
+    . = . + 1024 * 1024 * 700;
     __mmap_end = .;
   }
   _end = .;
