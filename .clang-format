@@ -1,0 +1,32 @@
+Language: Cpp
+# 基于Google代码风格，进行适当调整
+BasedOnStyle: Google
+
+# 缩进配置
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# 大括号对齐方式
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  AfterClass: true
+  AfterControlStatement: false
+  AfterEnum: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  IndentBraces: false
+
+# switch-case 语句的缩进配置
+IndentCaseLabels: false
+
+# 指针与引用符号的对齐风格
+PointerAlignment: Left
+
+# 函数声明与定义中，参数的对齐风格
+AlignAfterOpenBracket: Align
+ReflowComments: true

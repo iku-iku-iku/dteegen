@@ -233,6 +233,7 @@ if(CC_PL)
   set(MY_MUSL_LIB_DIR /workspace/riscv64-linux-musl/riscv64-linux-musl/lib)
   set(MUSL_LIB_DIR ${PLSDK}/musl/lib)
   set(MUSL_LIBC ${MUSL_LIB_DIR}/libc.a)
+  set(CRT ${MUSL_LIB_DIR}/crt1.o)
   set(MUSL_LIBCPP ${MY_MUSL_LIB_DIR}/libstdc++.a)
   set(MUSL_LIBATOMIC ${MY_MUSL_LIB_DIR}/libatomic.a)
   set(CC gcc)
@@ -270,7 +271,7 @@ if(CC_PL)
         OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB}
         COMMAND ld -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lsecgear_tee -lc -lpthread
-            -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SECGEAR_TEE_LIB} ${SDK_APP_LIB} ${SDK_GM_LIB} ${STATIC_LIBS} ${MUSL_LIBCPP}
+            -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${CRT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SECGEAR_TEE_LIB} ${SDK_APP_LIB} ${SDK_GM_LIB} ${STATIC_LIBS} ${MUSL_LIBCPP}
              /usr/lib/libunwind.a ${MUSL_LIBC} ${GCC_LIB} ${MUSL_LIBATOMIC} /usr/lib/libjustworkaround.a -T ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds
         COMMAND chmod -x ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         COMMENT "generate penglai-ELF"

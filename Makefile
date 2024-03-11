@@ -1,22 +1,22 @@
-.PHONY: all debug clean perf deploy generate test_project generate_cpp build_in_docker docker build_compile_deps build_docker run_docker build_target build_target_raw
+.PHONY: all debug clean perf deploy generate test_project generate_cpp build_in_docker docker build_compile_deps run_docker build_target build_target_raw
 
 all:
-	./scripts/build_codegen.sh release
+	./scripts/build_dteegen.sh release
 
 debug:
-	./scripts/build_codegen.sh debug
+	./scripts/build_dteegen.sh debug
 
 clean:
 	rm -rf build
 
 perf:
-	sudo perf record --call-graph dwarf ./build/codegen ./test/test_seal
+	sudo perf record --call-graph dwarf ./build/dteegen ./test/test_seal
 
 generate: all
-	./build/codegen test_project
+	./build/dteegen test_project
 
 generate_cpp: all
-	./build/codegen test_project_cpp
+	./build/dteegen test_project_cpp
 
 deploy: 
 	tar -zcvf generated.tar.gz generated
@@ -32,8 +32,7 @@ build_compile_deps:
 	bash ./scripts/build_compile_deps.sh
 docker:
 	bash ./scripts/update_docker_deps.sh
-	docker build -t rv-secgear .
-build_docker:
+	./scripts/build_dteegen.sh debug riscv64
 	docker build --network=host -t rv-secgear .
 run_docker:
 	docker run -v $(shell pwd):/test -v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static --network=host -w /test -it rv-secgear

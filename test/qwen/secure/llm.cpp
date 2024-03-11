@@ -37,9 +37,12 @@ static void unrecord(void* ptr)
 #include "../insecure/file_stub.h"
 #include "common/common.h"
 #include "llama.h"
+
+#ifdef USE_TLSF
 #include "tlsf.h"
 
 tlsf_t g_tlsf_pool;
+#endif
 #define MAX_POXIS_MEMALIGN 10
 static void* ptrs[MAX_POXIS_MEMALIGN];
 static size_t offset[MAX_POXIS_MEMALIGN];
@@ -83,6 +86,7 @@ int run(const char* prompt)
 
     llama_sampling_params& sparams = params.sparams;
     std::mt19937 rng(params.seed);
+    malloc(31);
     eapp_print("OK\n");
 
     llama_backend_init();
@@ -135,7 +139,7 @@ int run(const char* prompt)
     while (n_remain != 0) {
         // predict
         if (!embd.empty()) {
-            eapp_print(">>>>>\n");
+            eapp_print("");
             int max_embd_size = n_ctx - 4;
 
             // Ensure the input doesn't exceed the context size by truncating
@@ -166,7 +170,7 @@ int run(const char* prompt)
         embd.clear();
         embd_guidance.clear();
 
-        eapp_print("---------\n");
+        eapp_print("");
         if ((int)embd_inp.size() <= n_consumed) {
             const llama_token id =
                 llama_sampling_sample(ctx_sampling, ctx, ctx_guidance);
@@ -192,11 +196,10 @@ int run(const char* prompt)
                 }
             }
         }
-        eapp_print("vvvvvvvvvvvvv\n");
+        eapp_print("");
 
         // display text
         for (auto id : embd) {
-            eapp_print("XXXX\n");
             const std::string token_str = llama_token_to_piece(ctx, id);
             eapp_print("%s", token_str.c_str());
         }
@@ -309,7 +312,7 @@ extern "C"
     calloc_type g_my_calloc;
 }
 
-char* g_mem;
+char* g_mem = 0;
 #define HEAP_LEN (450 * 1024 * 1024)
 size_t g_pos;
 int free_cnt = 0;
@@ -341,7 +344,8 @@ int free_cnt = 0;
 
 void* my_malloc(size_t size)
 {
-    // eapp_print("MALLOC: %lu\n", size);
+    // eapp_print("MALLOC: %d\n", (int)size);
+#ifdef USE_TLSF
     if (g_mem) {
         void* ptr = tlsf_malloc(g_tlsf_pool, size);
         record(ptr, size);
@@ -351,7 +355,15 @@ void* my_malloc(size_t size)
         return ptr;
     }
     else
-        return malloc(size);
+#endif
+    {
+        void* res = malloc(size);
+        int check = 0;
+        if (res == 0) eapp_print("OOM!\n");
+        for (int i = 0; i < size; i++) check += ((char*)res)[i];
+        if (check == 0) eapp_print("ALL ZERO\n");
+        return res;
+    }
     // return MemoryPoolAlloc(mp, size);
     // eapp_print("MALLOC: %d\n", size);
     //    return malloc(size);
@@ -381,6 +393,7 @@ void* my_malloc(size_t size)
     // // eapp_print("TOTAL: %d\n", (int)total);
     // return res;
 }
+std::unordered_map<void*, int> ptr_to_offset;
 #define FREE(ptr)                    \
     do {                             \
         tlsf_free(g_tlsf_pool, ptr); \
@@ -388,6 +401,10 @@ void* my_malloc(size_t size)
     } while (0)
 void my_free(void* ptr)
 {
+    if (ptr_to_offset.find(ptr) != ptr_to_offset.end()) {
+        free((char*)ptr - ptr_to_offset[ptr]);
+        return;
+    }
     // for (int i = 0; i < MAX_POXIS_MEMALIGN; ++i) {
     //     if (ptrs[i] != 0 && (char*)ptrs[i] + offset[i] == ptr) {
     //         FREE(ptrs[i]);
@@ -397,6 +414,7 @@ void my_free(void* ptr)
     //     }
     // }
     // if (g_mem) tlsf_free(g_tlsf_pool, ptr);
+#ifdef USE_TLSF
     if (g_mem && ptr >= g_mem && ptr < g_mem + HEAP_LEN) {
         // if (ptr >= mp->mlist->start && ptr < mp->mlist->start +
         // MEMPOOL_SIZE)
@@ -404,8 +422,10 @@ void my_free(void* ptr)
         FREE(ptr);
         // MemoryPoolFree(mp, ptr);
     }
-    else {
-        // free(ptr);
+    else
+#endif
+    {
+        free(ptr);
     }
     // return;
     // if (mem_pool.contains(ptr)) {
@@ -440,8 +460,29 @@ void operator delete[](void* p) noexcept { operator delete(p); }
 
 int my_posix_memalign(void** __memptr, size_t __alignment, size_t __size)
 {
-    *__memptr = tlsf_memalign(g_tlsf_pool, __alignment, __size);
-    record(*__memptr, __size);
+    eapp_print("POSIX MEMALIGN: %d %d\n", (int)__alignment, (int)__size);
+
+#ifdef USE_TLSF
+    if (g_mem) {
+        *__memptr = tlsf_memalign(g_tlsf_pool, __alignment, __size);
+        record(*__memptr, __size);
+    }
+    else
+#endif
+    {
+        char* ptr = (char*)my_malloc(__size + __alignment - 1);
+        char* next_align_ptr =
+            (char*)(((size_t)ptr + __alignment - 1) & ~(__alignment - 1));
+        ptr_to_offset[next_align_ptr] = next_align_ptr - ptr;
+        *__memptr = next_align_ptr;
+        int t = 0;
+        for (char* p = (char*)next_align_ptr;
+             p < (char*)next_align_ptr + __size; p++)
+            t += *p;
+
+        eapp_print("POSIX MEMALIGN: %d DONE\n", t);
+        // posix_memalign(__memptr, __alignment, __size);
+    }
     // eapp_print("SIZE: %d\n", (int)__size);
     // size_t size_needed = __size + __alignment - 1;
     // char* ptr = (char*)my_malloc(size_needed);
@@ -498,22 +539,25 @@ void manual_init_array(void)
     eapp_print("INIT ARRAY DONE\n");
 }
 #endif
+
 int llm_inference(char* user_input, int user_input_len)
 {
     eapp_print("HEAP: %p\n", g_mem);
-    g_mem = (char*)malloc(HEAP_LEN + 8);
+    // g_mem = (char*)malloc(HEAP_LEN + 8);
     // ta_init(g_mem, g_mem + HEAP_LEN, 1024 * 512, 1024 * 64, 8);
-    g_tlsf_pool = tlsf_create_with_pool(g_mem, HEAP_LEN);
+    // g_tlsf_pool = tlsf_create_with_pool(g_mem, HEAP_LEN);
     // mp = MemoryPoolInit(MEMPOOL_SIZE, MEMPOOL_SIZE);
     // if (!mp) eapp_print("FAIL TO INIT MEM POOL\n");
     // my_malloc(100);
     // eapp_print("HEAP: %p\n", g_mem);
     // *(uint32_t*)g_mem = HEAP_LEN;
     // *(uint32_t*)((g_mem) + 4 + HEAP_LEN) = 0;
-#ifdef __TEE
-    g_malloc = my_malloc;
-    g_free = my_free;
-#endif
+    // #ifdef __TEE
+    //     g_malloc = my_malloc;
+    //     g_free = my_free;
+    // #endif
+    //
+    malloc(31);
 
     eapp_print("HEAP: %p\n", g_mem);
     // manual_init_array();
@@ -523,6 +567,10 @@ int llm_inference(char* user_input, int user_input_len)
     g_io_helper.fwrite = my_fwrite;
     g_io_helper.fseek = my_fseek;
     g_io_helper.ftell = my_ftell;
+    // g_my_posix_memalign = my_posix_memalign;
+    // g_my_malloc = my_malloc;
+    // g_my_free = my_free;
+    // g_my_calloc = my_calloc;
     g_my_posix_memalign = my_posix_memalign;
     g_my_malloc = my_malloc;
     g_my_free = my_free;

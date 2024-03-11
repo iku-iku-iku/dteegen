@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
 strace \
     build-essential \
     cmake \
+    gdb \
     llvm \
     clang \
     libclang-dev \
@@ -21,7 +22,7 @@ strace \
 COPY libjustworkaround.a /usr/lib
 COPY libunwind.a /usr/lib
 
-COPY build/dteegen /usr/bin/dteegen
+COPY build_riscv64/dteegen /usr/bin/dteegen
 COPY codegen /usr/bin
 RUN mkdir -p /workspace/dteegen
 COPY template /workspace/dteegen/template

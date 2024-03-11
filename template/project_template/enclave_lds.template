@@ -1,5 +1,7 @@
 path: enclave/Enclave.lds
 OUTPUT_ARCH( "riscv" )
+ENTRY(_start)
+
 
 SECTIONS 
 {
@@ -14,11 +16,13 @@ SECTIONS
     *(.rdata)
     *(.rodata)
   }
-  .data : { *(.data) }
-  .bss : { 
-    *(.tbss._ZZN12_GLOBAL__N_110get_globalEvE6global)
-    *(.tbss) 
+  .data : {
+    *(.data) 
+    __bss_start = .;
     *(.bss)
+    __bss_end = .;
+  }
+  .bss : { 
   }
   .init_array : {
     __init_array_start = .;
@@ -41,7 +45,7 @@ SECTIONS
   .mmap_area :
   {
     __mmap_start0 = .;
-    . = . + 1024 * 1024 * 700;
+    . = . + 1024 * 1024 * 480;
     __mmap_end = .;
   }
   _end = .;
