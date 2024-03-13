@@ -1,176 +1,419 @@
 path: z_enclave_env_provider.cpp
-#include "${project}_u.h"
-#include "enclave.h"
+
+#include <TEE-Capability/distributed_tee.h>
+#include <elf.h>
+#include <fcntl.h>
 #include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#include <TEE-Capability/distributed_tee.h>
+
+#include "${project}_u.h"
+#include "enclave.h"
+#define PRIVATE_KEY_SIZE 32
+#define PUBLIC_KEY_SIZE 64
+#define HASH_SIZE 32
+#define SIGNATURE_SIZE 64
+
+#define NONCE 12345
+#define ROUND_TO(x, align) (((x) + ((align)-1)) & ~((align)-1))
+
+extern "C"
+{
+    typedef struct
+    {
+        unsigned int state[8];
+        unsigned int length;
+        unsigned int curlen;
+        unsigned char buf[64];
+    } SM3_STATE;
+    void SM3_init(SM3_STATE * md);
+    void SM3_process(SM3_STATE * md, unsigned char buf[], int len);
+    void SM3_done(SM3_STATE * md, unsigned char* hash);
+}
+void update_enclave_hash(void* hash, uintptr_t nonce_arg)
+{
+    SM3_STATE hash_ctx;
+    uintptr_t nonce = nonce_arg;
+
+    SM3_init(&hash_ctx);
+    SM3_process(&hash_ctx, (unsigned char*)(hash), HASH_SIZE);
+    SM3_process(&hash_ctx, (unsigned char*)(&nonce), sizeof(uintptr_t));
+    SM3_done(&hash_ctx, (unsigned char*)hash);
+}
+
+bool is_same_bytes(char* p1, char* p2, int len)
+{
+    for (int i = 0; i < len; i++) {
+        if (p1[i] != p2[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void printHex(unsigned char* c, int n)
+{
+    int i;
+    for (i = 0; i < n; i++) {
+        printf("0x%02X, ", c[i]);
+        if ((i % 4) == 3) printf(" ");
+
+        if ((i % 16) == 15) printf("\n");
+    }
+    if ((i % 16) != 0) printf("\n");
+}
+
+typedef struct _enclave_css_t
+{                                                /* 160 bytes */
+    unsigned char enclave_hash[HASH_SIZE];       /* (32) */
+    unsigned char signature[SIGNATURE_SIZE];     /* (64) */
+    unsigned char user_pub_key[PUBLIC_KEY_SIZE]; /* (64) */
+} enclave_css_t;
+
+int get_meta_property(unsigned char* elf_ptr, unsigned long size,
+                      unsigned long* meta_offset, unsigned long* meta_blocksize)
+{
+    Elf64_Ehdr elf_hdr;
+    Elf64_Shdr* shdr;
+    int i;
+    bool found = false;
+
+    memcpy(&elf_hdr, elf_ptr, sizeof(Elf64_Ehdr));
+    shdr = (Elf64_Shdr*)(elf_ptr + elf_hdr.e_shoff);
+    const char* shstrtab =
+        (char*)(elf_ptr + (shdr + elf_hdr.e_shstrndx)->sh_offset);
+
+    /* Loader section */
+    for (i = 0; i < elf_hdr.e_shnum; i++, shdr++) {
+        if (!strcmp(shstrtab + shdr->sh_name, ".note.penglaimeta")) {
+            found = true;
+            break;
+        }
+    }
+    if (found == false) {
+        printf(
+            "ERROR: The enclave image should have '.note.penglaimeta' "
+            "section\n");
+        return -1;
+    }
+    /* We require that enclaves should have .note.penglaimeta section to store
+     * the metadata information We limit this section is used for metadata only
+     * and ISV should not extend this section.
+     *
+     * .note.penglaimeta layout:
+     *
+     * |  namesz         |
+     * |  metadata size  |
+     * |  type           |
+     * |  name           |
+     * |  metadata       |
+     */
+
+    Elf64_Nhdr* note = (Elf64_Nhdr*)(elf_ptr + shdr->sh_offset);
+    if (note == NULL) {
+        printf("ERROR: Nhdr is NULL\n");
+        return -1;
+    }
+
+    if (shdr->sh_size !=
+        ROUND_TO(sizeof(Elf64_Nhdr) + note->n_namesz + note->n_descsz,
+                 shdr->sh_addralign)) {
+        printf("ERROR: The '.note.penglaimeta' section size is not correct.\n");
+        return -1;
+    }
+
+    const char* meta_name = "penglai_metadata";
+    if (note->n_namesz != (strlen(meta_name) + 1) ||
+        memcmp((void*)(elf_ptr + shdr->sh_offset + sizeof(Elf64_Nhdr)),
+               meta_name, note->n_namesz)) {
+        printf(
+            "ERROR: The note in the '.note.penglaimeta' section must be named "
+            "as \"penglai_metadata\"\n");
+        return -1;
+    }
+
+    *meta_offset =
+        (unsigned long)(shdr->sh_offset + sizeof(Elf64_Nhdr) + note->n_namesz);
+    *meta_blocksize = note->n_descsz;
+
+    return true;
+}
 
 cc_enclave_t g_enclave;
-cc_enclave_t *g_enclave_context;
-#define HOOK_FUNC \
-  (decltype(std::declval<cc_enclave_ops>().cc_ecall_enclave))distributed_tee_ecall_enclave
+cc_enclave_t* g_enclave_context;
+#define HOOK_FUNC                                               \
+    (decltype(std::declval<cc_enclave_ops>().cc_ecall_enclave)) \
+        distributed_tee_ecall_enclave
 
 #define CC_ECALL_ENCLAVE \
-  g_enclave_context->list_ops_node->ops_desc->ops->cc_ecall_enclave
-extern "C" {
-
-static bool is_migrate() {
-  if (g_current_dtee_context) {
-    if (g_current_dtee_context->config.side == SIDE::Client && 
-        g_current_dtee_context->config.mode == MODE::Migrate) {
-      return true;
+    g_enclave_context->list_ops_node->ops_desc->ops->cc_ecall_enclave
+extern "C"
+{
+    static bool is_migrate()
+    {
+        if (g_current_dtee_context) {
+            if (g_current_dtee_context->config.side == SIDE::Client &&
+                g_current_dtee_context->config.mode == MODE::Migrate) {
+                return true;
+            }
+        }
+        return false;
     }
-  }
-  return false;
-}
 
-static bool is_transparent() {
-  if (g_current_dtee_context) {
-    if (g_current_dtee_context->config.side == SIDE::Client && 
-        g_current_dtee_context->config.mode == MODE::Transparent) {
-      return true;
+    static bool is_transparent()
+    {
+        if (g_current_dtee_context) {
+            if (g_current_dtee_context->config.side == SIDE::Client &&
+                g_current_dtee_context->config.mode == MODE::Transparent) {
+                return true;
+            }
+        }
+        return false;
     }
-  }
-  return false;
-}
 
-// 迁移模式下，远程调用enclave
-struct cc_enclave_ops hook_enclave_ops = {
-  .cc_ecall_enclave = HOOK_FUNC
-};
+    // 迁移模式下，远程调用enclave
+    struct cc_enclave_ops hook_enclave_ops = {.cc_ecall_enclave = HOOK_FUNC};
 
-struct cc_enclave_ops_desc hook_enclave_desc = {
-  .ops = &hook_enclave_ops
-};
+    struct cc_enclave_ops_desc hook_enclave_desc = {.ops = &hook_enclave_ops};
 
-struct list_ops_desc hook_enclave_list_ops_desc = {
-  .ops_desc = &hook_enclave_desc
-};
+    struct list_ops_desc hook_enclave_list_ops_desc = {.ops_desc =
+                                                           &hook_enclave_desc};
 
-cc_enclave_t hook_enclave = {
-  .list_ops_node = &hook_enclave_list_ops_desc
-};
+    cc_enclave_t hook_enclave = {.list_ops_node = &hook_enclave_list_ops_desc};
 
-void z_create_enclave(const char* enclave_path) {
-  if (is_migrate() || is_transparent() && !exist_local_tee()) {
-    g_enclave_context = &hook_enclave;
-    return;
-  } else {
-    g_enclave_context = &g_enclave;
-  }
+    struct signature_t
+    {
+        unsigned char r[PUBLIC_KEY_SIZE / 2];
+        unsigned char s[PUBLIC_KEY_SIZE / 2];
+    };
 
-  cc_enclave_result_t res = CC_FAIL;
+    struct pubkey_t
+    {
+        unsigned char xA[PUBLIC_KEY_SIZE / 2];
+        unsigned char yA[PUBLIC_KEY_SIZE / 2];
+    };
 
-  // char *path = PATH;
-  //
-  // char real_p[PATH_MAX];
-  // /* check file exists, if not exist then use absolute path */
-  // if (realpath(path, real_p) == NULL) {
-  //   if (getcwd(real_p, sizeof(real_p)) == NULL) {
-  //     printf("Cannot find enclave.sign.so");
-  //     goto end;
-  //   }
-  //   if (PATH_MAX - strlen(real_p) <= strlen("/enclave.signed.so")) {
-  //     printf("Failed to strcat enclave.sign.so path");
-  //     goto end;
-  //   }
-  //   (void)strcat(real_p, "/enclave.signed.so");
-  // }
+    struct sm_report_t
+    {
+        unsigned char hash[HASH_SIZE];
+        unsigned char signature[SIGNATURE_SIZE];
+        unsigned char sm_pub_key[PUBLIC_KEY_SIZE];
+    };
 
-  res = cc_enclave_create(enclave_path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG,
-                          NULL, 0, g_enclave_context);
-  if (res != CC_SUCCESS) {
-    printf("Create enclave error\n");
-    goto end;
-  }
+    struct enclave_report_t
+    {
+        unsigned char hash[HASH_SIZE];
+        unsigned char signature[SIGNATURE_SIZE];
+        uintptr_t nonce;
+    };
 
-  if (g_enclave_context == NULL || 
-    g_enclave_context->list_ops_node == NULL ||
-    g_enclave_context->list_ops_node->ops_desc == NULL ||
-    g_enclave_context->list_ops_node->ops_desc->ops == NULL ||
-    g_enclave_context->list_ops_node->ops_desc->ops->cc_ecall_enclave == NULL) {
-    printf("Create enclave error\n");
-    goto end;
-  }
+    struct report_t
+    {
+        struct sm_report_t sm;
+        struct enclave_report_t enclave;
+        unsigned char dev_pub_key[PUBLIC_KEY_SIZE];
+    };
 
-  return;
+    struct penglai_enclave_user_param
+    {
+        unsigned long eid;
+        unsigned long elf_ptr;
+        long elf_size;
+        long stack_size;
+        unsigned long untrusted_mem_ptr;
+        long untrusted_mem_size;
+        long ocall_buf_size;
+        int resume_type;
+    };
 
-end:
-  exit(-1);
-}
+    struct penglai_enclave_attest_param
+    {
+        unsigned long eid;
+        unsigned long nonce;
+        struct report_t report;
+    };
 
-void z_destroy_enclave() {
-  if (is_migrate()) {
-    return;
-  }
-  if (g_enclave_context == &g_enclave) {
-    cc_enclave_result_t res = cc_enclave_destroy(g_enclave_context);
-    if (res != CC_SUCCESS) {
-      printf("Destroy enclave error\n");
+    struct PLenclave
+    {
+        struct elf_args* elffile;
+        int eid;
+        int fd;
+        struct penglai_enclave_user_param user_param;
+        struct penglai_enclave_attest_param attest_param;
+    };
+
+    bool is_valid_report(struct report_t* report, const char* enclave_path)
+    {
+        // 1. check the signature
+        {
+            struct pubkey_t* sm_pub_key =
+                (struct pubkey_t*)report->sm.sm_pub_key;
+            struct signature_t* signature =
+                (struct signature_t*)report->enclave.signature;
+
+            int fd;
+
+            if (SM2_Verify(report->enclave.hash, HASH_SIZE, sm_pub_key->xA,
+                           sm_pub_key->yA, signature->r, signature->s)) {
+                return false;
+            }
+        }
+
+        // 2. check the hash
+        {
+            bool is_valid = true;
+            int fd = open(enclave_path, O_RDONLY);
+            if (fd < 0) {
+                printf("open enclave file failed\n");
+                return false;
+            }
+            struct stat stat;
+            fstat(fd, &stat);
+            if (stat.st_size == 0) {
+                printf("enclave file size is 0\n");
+                return false;
+            }
+
+            // calculate the correct hash
+            void* elf_ptr =
+                mmap(NULL, stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+            unsigned long meta_offset, meta_size;
+            get_meta_property((unsigned char*)elf_ptr, stat.st_size,
+                              &meta_offset, &meta_size);
+            char* elf_hash = (char*)malloc(HASH_SIZE);
+            memcpy(elf_hash, (char*)elf_ptr + meta_offset, HASH_SIZE);
+            update_enclave_hash(elf_hash, report->enclave.nonce);
+
+            // compare with the received hash
+            if (!is_same_bytes(elf_hash, (char*)report->enclave.hash,
+                               HASH_SIZE)) {
+                is_valid = false;
+            }
+            close(fd);
+            free(elf_hash);
+            if (!is_valid) {
+                return false;
+            }
+        }
+
+        return true;
     }
-    g_enclave_context = NULL;
-  }
-}
 
-__attribute__((constructor)) void before_main() {
-  pthread_rwlock_init(&(hook_enclave.rwlock), NULL);
- // g_enclave = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
- // if (!g_enclave) {
- //   // return CC_ERROR_OUT_OF_MEMORY;
- //   printf("Create g_enclave error\n");
- //   return;
- // }
- // memset(g_enclave, 0, sizeof(*g_enclave));
- // // z_create_enclave();
-}
+    void z_create_enclave(const char* enclave_path)
+    {
+        if (is_migrate() || is_transparent() && !exist_local_tee()) {
+            g_enclave_context = &hook_enclave;
+            return;
+        }
+        else {
+            g_enclave_context = &g_enclave;
+        }
 
+        cc_enclave_result_t res = CC_FAIL;
+        struct penglai_enclave_attest_param* attest_param;
 
-int ecall_proxy(const char* enclave_filename, uint32_t fid, char* in_buf, int in_buf_size, char* out_buf, int out_buf_size) {
-  z_create_enclave(enclave_filename);
-  cc_enclave_result_t ret = CC_FAIL;
-  uint32_t ms = 0;
+        res = cc_enclave_create(enclave_path, AUTO_ENCLAVE_TYPE, 0,
+                                SECGEAR_DEBUG_FLAG, NULL, 0, g_enclave_context);
 
-  /* Call the cc_enclave function */
-  cc_enclave_t* enclave = g_enclave_context;
-  if (!enclave) {
-      ret = CC_ERROR_BAD_PARAMETERS;
-      goto exit;
-  }
-  if (pthread_rwlock_rdlock(&enclave->rwlock)) {
-      ret = CC_ERROR_BUSY;
-      goto exit;
-  }
-  if (!enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||
+        if (res != CC_SUCCESS) {
+            printf("Create enclave error\n");
+            exit(-1);
+        }
+
+        // TODO: add support for other enclaves
+        attest_param =
+            &((struct PLenclave*)g_enclave_context->private_data)->attest_param;
+        printf("eid %d nonce %d\n", attest_param->eid,
+               attest_param->report.enclave.nonce);
+        if (is_valid_report(&attest_param->report, enclave_path)) {
+            printf("IS VALID REPORT\n");
+        }
+
+        if (g_enclave_context == NULL ||
+            g_enclave_context->list_ops_node == NULL ||
+            g_enclave_context->list_ops_node->ops_desc == NULL ||
+            g_enclave_context->list_ops_node->ops_desc->ops == NULL ||
+            g_enclave_context->list_ops_node->ops_desc->ops->cc_ecall_enclave ==
+                NULL) {
+            printf("Create enclave error\n");
+            goto end;
+        }
+
+        return;
+
+    end:
+        exit(-1);
+    }
+
+    void z_destroy_enclave()
+    {
+        if (is_migrate()) {
+            return;
+        }
+        if (g_enclave_context == &g_enclave) {
+            cc_enclave_result_t res = cc_enclave_destroy(g_enclave_context);
+            if (res != CC_SUCCESS) {
+                printf("Destroy enclave error\n");
+            }
+            g_enclave_context = NULL;
+        }
+    }
+
+    __attribute__((constructor)) void before_main()
+    {
+        pthread_rwlock_init(&(hook_enclave.rwlock), NULL);
+        // g_enclave = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
+        // if (!g_enclave) {
+        //   // return CC_ERROR_OUT_OF_MEMORY;
+        //   printf("Create g_enclave error\n");
+        //   return;
+        // }
+        // memset(g_enclave, 0, sizeof(*g_enclave));
+        // // z_create_enclave();
+    }
+
+    int ecall_proxy(const char* enclave_filename, uint32_t fid, char* in_buf,
+                    int in_buf_size, char* out_buf, int out_buf_size)
+    {
+        z_create_enclave(enclave_filename);
+        cc_enclave_result_t ret = CC_FAIL;
+        uint32_t ms = 0;
+
+        /* Call the cc_enclave function */
+        cc_enclave_t* enclave = g_enclave_context;
+        if (!enclave) {
+            ret = CC_ERROR_BAD_PARAMETERS;
+            goto exit;
+        }
+        if (pthread_rwlock_rdlock(&enclave->rwlock)) {
+            ret = CC_ERROR_BUSY;
+            goto exit;
+        }
+        if (!enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||
             !enclave->list_ops_node->ops_desc->ops ||
             !enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave) {
-      ret = CC_ERROR_BAD_PARAMETERS;
-      goto exit;
-  }
-  if ((ret = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave(
-            enclave,
-            fid,
-            in_buf,
-            in_buf_size,
-            out_buf,
-            out_buf_size,
-            &ms,
-            NULL)) != CC_SUCCESS) {
-      pthread_rwlock_unlock(&enclave->rwlock);
-      goto exit; }
-  if (pthread_rwlock_unlock(&enclave->rwlock)) {
-      ret = CC_ERROR_BUSY;
-      goto exit;
-  }
-  
-  ret = CC_SUCCESS;
+            ret = CC_ERROR_BAD_PARAMETERS;
+            goto exit;
+        }
+        if ((ret = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave(
+                 enclave, fid, in_buf, in_buf_size, out_buf, out_buf_size, &ms,
+                 NULL)) != CC_SUCCESS) {
+            pthread_rwlock_unlock(&enclave->rwlock);
+            goto exit;
+        }
+        if (pthread_rwlock_unlock(&enclave->rwlock)) {
+            ret = CC_ERROR_BUSY;
+            goto exit;
+        }
 
-exit:
-  z_destroy_enclave();
-  return ret;
+        ret = CC_SUCCESS;
+
+    exit:
+        z_destroy_enclave();
+        return ret;
+    }
 }
-}
-
-

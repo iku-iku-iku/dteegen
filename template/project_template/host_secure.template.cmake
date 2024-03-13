@@ -79,7 +79,7 @@ endif()
 # _addlibrary(__z_auto_lib ${AUTO_FILES})
 find_package(foonathan_memory REQUIRED)
 _addlibrary(__z_auto_lib ${AUTO_FILES} ../../z_enclave_env_provider.cpp)
-target_link_libraries(__z_auto_lib distributed_tee fastrtps fastcdr foonathan_memory rt)
+target_link_libraries(__z_auto_lib distributed_tee fastrtps fastcdr foonathan_memory sm2 miracl rt)
 target_include_directories(__z_auto_lib PRIVATE
   ${LOCAL_ROOT_PATH}/inc/host_inc
   ${LOCAL_ROOT_PATH}/inc/host_inc/penglai

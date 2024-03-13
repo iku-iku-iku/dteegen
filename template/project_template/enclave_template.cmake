@@ -36,6 +36,7 @@ set(PEM Enclave_private.pem)
 
 #set sign tool
 set(SIGN_TOOL ${LOCAL_ROOT_PATH}/tools/sign_tool/sign_tool.sh)
+message("LOCAL_ROOT_PATH is ${LOCAL_ROOT_PATH}")
 
 file(GLOB_RECURSE SOURCE_FILES 
 "${CMAKE_CURRENT_SOURCE_DIR}/insecure/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/insecure/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/insecure/*.cc" 
@@ -266,12 +267,20 @@ if(CC_PL)
             -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${APP_C_OBJ} ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c
         COMMENT "generate APP_C_OBJ"
     )
+  
+  set(META_SECTION ${CMAKE_CURRENT_BINARY_DIR}/meta.o)
+  set(META_FILE ${CMAKE_CURRENT_SOURCE_DIR}/meta.S)
+  add_custom_command(
+    OUTPUT ${META_SECTION}
+    DEPENDS ${META_FILE}
+    COMMAND ${CC} -o ${META_SECTION} -c ${META_FILE}
+  )
 
   add_custom_command(
         OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
-        DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB}
+        DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB} ${META_SECTION}
         COMMAND ld -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lsecgear_tee -lc -lpthread
-            -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${CRT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SECGEAR_TEE_LIB} ${SDK_APP_LIB} ${SDK_GM_LIB} ${STATIC_LIBS} ${MUSL_LIBCPP}
+            -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${META_SECTION} ${CRT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SECGEAR_TEE_LIB} ${SDK_APP_LIB} ${SDK_GM_LIB} ${STATIC_LIBS} ${MUSL_LIBCPP}
              /usr/lib/libunwind.a ${MUSL_LIBC} ${GCC_LIB} ${MUSL_LIBATOMIC} /usr/lib/libjustworkaround.a -T ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds
         COMMAND chmod -x ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         COMMENT "generate penglai-ELF"
