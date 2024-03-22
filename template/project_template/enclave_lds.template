@@ -18,11 +18,9 @@ SECTIONS
   }
   .data : {
     *(.data) 
-    __bss_start = .;
-    *(.bss)
-    __bss_end = .;
   }
   .bss : { 
+    *(.bss)
   }
   .init_array : {
     __init_array_start = .;
@@ -45,7 +43,7 @@ SECTIONS
   .mmap_area :
   {
     __mmap_start0 = .;
-    . = . + 1024 * 1024 * 480;
+    . = . + 1024 * 1024 * 220;
     __mmap_end = .;
   }
   _end = .;

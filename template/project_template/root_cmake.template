@@ -35,6 +35,7 @@ if(CC_PL)
 endif()
 
 add_definitions(-D__TEE=ON)
+add_definitions(-DREMOTE_ATTESTATION=ON)
 
 add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
 add_subdirectory(${CURRENT_ROOT_PATH}/host)

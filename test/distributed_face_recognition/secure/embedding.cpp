@@ -1,5 +1,6 @@
 #include "embedding.h"
 
+#include "../insecure/file.h"
 #include "datareader.h"
 // #include "mobilefacenet.bin.inc"
 #include "mobilefacenet.id.h"
@@ -14,8 +15,16 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>  // 用于memset
+#include <filesystem>
+#include <fstream>
+#include <regex>
 #include <unordered_map>
 #include <vector>
+
+#define INF 1000000
+
+constexpr float THRESHOLD = 8;
+
 
 class BitmapMemoryPool : public ncnn::Allocator
 {
@@ -125,29 +134,17 @@ void print_float(float num)
     }
     print_num((int)(num * 10000));
 }
-float mat_sum(const ncnn::Mat &mat)
-{
-    float sum = 0;
-    for (int i = 0; i < mat.total(); i++) {
-        if (mat[i] > 100) {
-            sum += mat[i] / 100;
-        }
-        else
-            sum += mat[i];
-    }
-    return sum;
-}
 int embedding(in_char img[IMG_SIZE], out_char res[EMBEDDING_SIZE])
 {
     ncnn::Net net;
 
 #ifdef __TEE
-    // const int POOL_SIZE = 1024 * 1024 * 50;
-    // auto pool = new BitmapMemoryPool(malloc(POOL_SIZE), POOL_SIZE, 1024 *
-    // 16); eapp_print("POOL CREATED\n");
+    const int POOL_SIZE = 1024 * 1024 * 50;
+    auto pool = new BitmapMemoryPool(malloc(POOL_SIZE), POOL_SIZE, 1024 * 16);
+    // eapp_print("POOL CREATED\n");
     net.opt.use_vulkan_compute = false;
-    // net.opt.blob_allocator = pool;
-    // net.opt.workspace_allocator = pool;
+    net.opt.blob_allocator = pool;
+    net.opt.workspace_allocator = pool;
 #endif
     /* const unsigned char *mobilefacenet_param_ptr = mobilefacenet_param; */
     /* const unsigned char *mobilefacenet_bin_ptr = mobilefacenet_bin; */
@@ -177,13 +174,6 @@ retry: {
     extractor.input(mobilefacenet_param_id::BLOB_data, input);
 
     eapp_print("BEGIN INVOKE\n");
-    // extractor.extract(mobilefacenet_param_id::BLOB_fc1, output);
-    // for (int i = 1; i <= mobilefacenet_param_id::BLOB_fc1; i++) {
-    //   extractor.extract(i, output);
-    //   eapp_print("-----------%d------------", i);
-
-    //   print_float(mat_sum(output));
-    // }
     extractor.extract(mobilefacenet_param_id::BLOB_fc1, output);
 }
 
@@ -228,7 +218,79 @@ float calculate_distance(in_char emb1[EMBEDDING_SIZE],
         sum += d * d;
     }
 
-    // memcpy(dist, &sum, sizeof(float));
     return sum;
-    // return 0;
+}
+
+int img_recorder(in_char arr[IMG_SIZE], int id)
+{
+    char emb[EMBEDDING_SIZE];
+    int sealed_data_len = embedding(arr, emb);
+    // the embedding is sealed and can be stored safely.
+    eapp_print("SEALED_LEN: %d, BUF_LEN: %d\n", sealed_data_len, EMBEDDING_SIZE);
+
+    std::string filename = "emb" + std::to_string(id) + ".bin";
+    eapp_print("FILENAME: %s\n", filename.c_str());
+
+    write_file((char *)filename.c_str(), (int)filename.size() + 1, emb,
+               sealed_data_len);
+    // std::ofstream out(filename, std::ios::binary);
+    // out.write(emb, sealed_data_len);
+    return sealed_data_len;
+}
+
+int img_verifier(in_char arr[IMG_SIZE])
+{
+    char recorded_face_emb[EMBEDDING_SIZE];
+    char in_face_emb[EMBEDDING_SIZE];
+
+    int sealed_data_len = embedding(arr, in_face_emb);
+    float min_dist = INF;
+    int min_dist_id = -1;
+
+    int emb_ids[MAX_EMB_CNT];
+    int emb_cnt = get_emb_list((char *)emb_ids);
+    for (int i = 0; i < emb_cnt; i++) {
+        int emb_id = emb_ids[i];
+        std::string filename = "emb" + std::to_string(emb_id) + ".bin";
+        read_file((char *)filename.c_str(), (int)filename.size(),
+                  recorded_face_emb, EMBEDDING_SIZE);
+        float dist = calculate_distance(recorded_face_emb, in_face_emb);
+        eapp_print("DISTANCE WITH PERSON%d: %d x 10^-3\n", emb_id,
+                   (int)(1000 * dist));
+
+        if (dist < min_dist) {
+            min_dist = dist;
+            min_dist_id = emb_id;
+        }
+    }
+    // for (const auto &e : std::filesystem::directory_iterator(".")) {
+    //     const auto &path = e.path();
+    //     const auto path_str = path.string();
+    //     // if path_str belike "emb*.bin", take its id and do a comparison in
+    //     // enclave
+    //     std::regex re("emb(\\d+)\\.bin");
+    //     if (std::regex_search(path_str, re)) {
+    //         std::smatch match;
+    //         std::regex_search(path_str, match, re);
+    //         int id = std::stoi(match[1]);
+    //         std::ifstream in(path_str, std::ios::binary);
+    //         in.read(emb1, EMBEDDING_SIZE);
+
+    //         memcpy(emb2, in_emb, EMBEDDING_SIZE);
+    //         float dist;
+    //         // calculate_distance(emb1, emb2, (char *)&dist);
+    //         dist = calculate_distance(emb1, emb2);
+    //         printf("DISTANCE WITH PERSON%d: %f\n", id, dist);
+
+    //         if (dist < min_dist) {
+    //             min_dist = dist;
+    //             min_dist_id = id;
+    //         }
+    //     }
+    // }
+
+    if (min_dist < THRESHOLD * THRESHOLD) {
+        return min_dist_id;
+    }
+    return -1;
 }

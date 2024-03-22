@@ -1,0 +1,2 @@
+path: enclave/secure/ecdh.h
+int key_exchange(char* in_key, int in_key_len, char* out_key, int out_key_len);

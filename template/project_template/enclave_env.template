@@ -18,8 +18,32 @@ path: z_enclave_env_provider.cpp
 #define HASH_SIZE 32
 #define SIGNATURE_SIZE 64
 
+extern ocall_enclave_table_t ocall_table;
+
+extern const char* g_forced_enclave_path;
+
 #define NONCE 12345
 #define ROUND_TO(x, align) (((x) + ((align)-1)) & ~((align)-1))
+extern "C"
+{
+#include <miracl/miracl.h>
+#include <miracl/mirdef.h>
+#include <SM4_Enc.h>
+    extern std::vector<char> (*get_report_func)(const char* enclave_path);
+    extern bool (*is_report_valid_func)(void* report, const char* enclave_path);
+    extern std::pair<std::string, std::string> (*make_key_pair_func)();
+    extern std::string (*make_shared_key_func)(std::string pri_key,
+                                               std::string in_pub_key);
+    extern void (*sm4_encrypt)(const unsigned char *key,
+                        unsigned char *buf,
+                        int buf_len);
+    extern void (*sm4_decrypt)(const unsigned char *key,
+                        unsigned char *buf,
+                        int buf_len);
+#define SM2_WORDSIZE 8
+#define SM2_NUMBITS 256
+#define SM2_NUMWORD (SM2_NUMBITS / SM2_WORDSIZE)
+}
 
 extern "C"
 {
@@ -30,9 +54,9 @@ extern "C"
         unsigned int curlen;
         unsigned char buf[64];
     } SM3_STATE;
-    void SM3_init(SM3_STATE * md);
-    void SM3_process(SM3_STATE * md, unsigned char buf[], int len);
-    void SM3_done(SM3_STATE * md, unsigned char* hash);
+    void SM3_init(SM3_STATE* md);
+    void SM3_process(SM3_STATE* md, unsigned char buf[], int len);
+    void SM3_done(SM3_STATE* md, unsigned char* hash);
 }
 void update_enclave_hash(void* hash, uintptr_t nonce_arg)
 {
@@ -237,6 +261,8 @@ extern "C"
         struct report_t report;
     };
 
+    struct report_t current_report;
+
     struct PLenclave
     {
         struct elf_args* elffile;
@@ -246,8 +272,148 @@ extern "C"
         struct penglai_enclave_attest_param attest_param;
     };
 
-    bool is_valid_report(struct report_t* report, const char* enclave_path)
+    const char SM2_p[32] = {0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
+                            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                            0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00,
+                            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+    const char SM2_a[32] = {0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
+                            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                            0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00,
+                            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfc};
+
+    const char SM2_b[32] = {0x28, 0xe9, 0xfa, 0x9e, 0x9d, 0x9f, 0x5e, 0x34,
+                            0x4d, 0x5a, 0x9e, 0x4b, 0xcf, 0x65, 0x09, 0xa7,
+                            0xf3, 0x97, 0x89, 0xf5, 0x15, 0xab, 0x8f, 0x92,
+                            0xdd, 0xbc, 0xbd, 0x41, 0x4d, 0x94, 0x0e, 0x93};
+
+    const char SM2_Gx[32] = {0x32, 0xc4, 0xae, 0x2c, 0x1f, 0x19, 0x81, 0x19,
+                             0x5f, 0x99, 0x04, 0x46, 0x6a, 0x39, 0xc9, 0x94,
+                             0x8f, 0xe3, 0x0b, 0xbf, 0xf2, 0x66, 0x0b, 0xe1,
+                             0x71, 0x5a, 0x45, 0x89, 0x33, 0x4c, 0x74, 0xc7};
+
+    const char SM2_Gy[32] = {0xbc, 0x37, 0x36, 0xa2, 0xf4, 0xf6, 0x77, 0x9c,
+                             0x59, 0xbd, 0xce, 0xe3, 0x6b, 0x69, 0x21, 0x53,
+                             0xd0, 0xa9, 0x87, 0x7c, 0xc6, 0x2a, 0x47, 0x40,
+                             0x02, 0xdf, 0x32, 0xe5, 0x21, 0x39, 0xf0, 0xa0};
+
+    const char SM2_n[32] = {0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
+                            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                            0x72, 0x03, 0xdf, 0x6b, 0x21, 0xc6, 0x05, 0x2b,
+                            0x53, 0xbb, 0xf4, 0x09, 0x39, 0xd5, 0x41, 0x23};
+
+    void str_to_point(std::string str, epoint* a)
     {
+        char mem[MR_BIG_RESERVE(2)] = {0};
+        big x, y;
+        x = mirvar_mem(mem, 0);
+        y = mirvar_mem(mem, 1);
+        bytes_to_big(SM2_NUMWORD, str.c_str(), x);
+        bytes_to_big(SM2_NUMWORD, str.c_str() + SM2_NUMWORD, y);
+
+        epoint_set(x, y, 0, a);
+    }
+
+    std::string point_to_str(epoint* a)
+    {
+        char mem[MR_BIG_RESERVE(2)] = {0};
+        big x, y;
+        x = mirvar_mem(mem, 0);
+        y = mirvar_mem(mem, 1);
+
+        epoint_get(a, x, y);
+
+        char buffer[2 * SM2_NUMWORD];
+        big_to_bytes(SM2_NUMWORD, x, buffer, 1);
+
+        big_to_bytes(SM2_NUMWORD, y, buffer + SM2_NUMWORD, 1);
+
+        return std::string(buffer, buffer + 2 * SM2_NUMWORD);
+    }
+
+    std::pair<std::string, std::string> make_key_pair()
+    {
+        miracl* mip = mirsys(128, 16);
+        irand(time(0));
+
+        char mem[MR_BIG_RESERVE(7)] = {0};
+        char mem_point[MR_ECP_RESERVE(2)] = {0};
+
+        epoint *g, *pub;
+        big p, a, b, n, gx, gy, pri;
+        p = mirvar_mem(mem, 0);
+        a = mirvar_mem(mem, 1);
+        b = mirvar_mem(mem, 2);
+        n = mirvar_mem(mem, 3);
+        gx = mirvar_mem(mem, 4);
+        gy = mirvar_mem(mem, 5);
+        pri = mirvar_mem(mem, 6);
+
+        bytes_to_big(SM2_NUMWORD, SM2_a, a);
+        bytes_to_big(SM2_NUMWORD, SM2_b, b);
+        bytes_to_big(SM2_NUMWORD, SM2_p, p);
+        bytes_to_big(SM2_NUMWORD, SM2_Gx, gx);
+        bytes_to_big(SM2_NUMWORD, SM2_Gy, gy);
+        bytes_to_big(SM2_NUMWORD, SM2_n, n);
+
+        g = epoint_init_mem(mem_point, 0);
+
+        pub = epoint_init_mem(mem_point, 1);
+        ecurve_init(a, b, p, MR_PROJECTIVE);
+
+        if (!epoint_set(gx, gy, 0, g)) {
+            {};
+        }
+
+        auto make_prikey = [n](big x) {
+            bigrand(n, x);  // generate a big random number 0<=x<n
+        };
+
+        make_prikey(pri);
+        ecurve_mult(pri, g, pub);
+
+        auto get_key = [](big b) {
+            char buffer[SM2_NUMWORD];
+            big_to_bytes(SM2_NUMWORD, b, buffer, 1);
+            return std::string(buffer, buffer + SM2_NUMWORD);
+        };
+
+        auto res = std::make_pair(get_key(pri), point_to_str(pub));
+        mirexit();
+        return res;
+    }
+
+    std::string make_shared_key(std::string pri_key, std::string in_pub_key)
+    {
+        miracl* mip = mirsys(128, 16);
+        char mem[MR_BIG_RESERVE(1)] = {0};
+        char mem_point[MR_ECP_RESERVE(2)] = {0};
+
+        big pri, a, b, p;
+        pri = mirvar_mem(mem, 0);
+        a = mirvar_mem(mem, 1);
+        b = mirvar_mem(mem, 2);
+        p = mirvar_mem(mem, 3);
+        bytes_to_big(SM2_NUMWORD, SM2_a, a);
+        bytes_to_big(SM2_NUMWORD, SM2_b, b);
+        bytes_to_big(SM2_NUMWORD, SM2_p, p);
+        ecurve_init(a, b, p, MR_PROJECTIVE);
+
+        epoint* pub = epoint_init_mem(mem_point, 0);
+        str_to_point(std::move(in_pub_key), pub);
+
+        epoint* shared = epoint_init_mem(mem_point, 1);
+        bytes_to_big(SM2_NUMWORD, pri_key.c_str(), pri);
+        ecurve_mult(pri, pub, shared);
+
+        auto res = point_to_str(shared);
+        mirexit();
+        return res;
+    }
+
+    bool is_report_valid(void* report_p, const char* enclave_path)
+    {
+        struct report_t* report = (struct report_t*)report_p;
         // 1. check the signature
         {
             struct pubkey_t* sm_pub_key =
@@ -279,16 +445,21 @@ extern "C"
             }
 
             // calculate the correct hash
-            void* elf_ptr =
-                mmap(NULL, stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+            void* elf_ptr = mmap(NULL, stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
             unsigned long meta_offset, meta_size;
-            get_meta_property((unsigned char*)elf_ptr, stat.st_size,
-                              &meta_offset, &meta_size);
+            if (-1 == get_meta_property((unsigned char*)elf_ptr, stat.st_size,
+                                        &meta_offset, &meta_size)) {
+                exit(-1);
+            }
             char* elf_hash = (char*)malloc(HASH_SIZE);
             memcpy(elf_hash, (char*)elf_ptr + meta_offset, HASH_SIZE);
             update_enclave_hash(elf_hash, report->enclave.nonce);
 
             // compare with the received hash
+            printf("expected hash:\n");
+            printHex((unsigned char*)elf_hash, HASH_SIZE);
+            printf("calculated hash:\n");
+            printHex((unsigned char*)report->enclave.hash, HASH_SIZE);
             if (!is_same_bytes(elf_hash, (char*)report->enclave.hash,
                                HASH_SIZE)) {
                 is_valid = false;
@@ -305,6 +476,7 @@ extern "C"
 
     void z_create_enclave(const char* enclave_path)
     {
+        if (g_forced_enclave_path) enclave_path = g_forced_enclave_path;
         if (is_migrate() || is_transparent() && !exist_local_tee()) {
             g_enclave_context = &hook_enclave;
             return;
@@ -329,8 +501,10 @@ extern "C"
             &((struct PLenclave*)g_enclave_context->private_data)->attest_param;
         printf("eid %d nonce %d\n", attest_param->eid,
                attest_param->report.enclave.nonce);
-        if (is_valid_report(&attest_param->report, enclave_path)) {
+        if (is_report_valid(&attest_param->report, enclave_path)) {
             printf("IS VALID REPORT\n");
+            memcpy(&current_report, &attest_param->report,
+                   sizeof(struct report_t));
         }
 
         if (g_enclave_context == NULL ||
@@ -363,8 +537,73 @@ extern "C"
         }
     }
 
+    std::vector<char> get_report(const char* enclave_path)
+    {
+        z_create_enclave(enclave_path);
+        std::vector<char> report(sizeof(struct report_t));
+        memcpy(report.data(), &current_report, sizeof(struct report_t));
+        z_destroy_enclave();
+        return report;
+    }
+
+
+    extern int (*key_exchange_func)(char *in_key,
+                             int in_key_len,
+                             char *out_key,
+                             int out_key_len,
+                             char *out_sealed_shared_key,
+                             int out_sealed_shared_key_len);
+
+    int key_exchange(char* in_key, int in_key_len, char* out_key,
+                     int out_key_len, char *out_sealed_shared_key, int out_sealed_shared_key_len)
+    {
+        int retval;
+
+        z_create_enclave("enclave.signed.so");
+
+        cc_enclave_result_t __Z_res =
+            __secure_key_exchange_impl(g_enclave_context, &retval, in_key,
+                                       in_key_len, out_key, out_key_len, 
+                                       out_sealed_shared_key, out_sealed_shared_key_len);
+        if (__Z_res != CC_SUCCESS) {
+            printf("Ecall enclave error\n");
+            exit(-1);
+        }
+
+        z_destroy_enclave();
+
+        return retval;
+    }
+
+    void _Z_encrypt(const unsigned char* key, unsigned char* buf, int buf_len)
+    {
+        unsigned char iv[16] = {0};
+        if (buf_len % 16 != 0) {
+            printf("BUF LEN % 16 != 0");
+            exit(-1);
+        }
+        SM4_CBC_Encrypt(key, iv, buf, buf_len, buf, buf_len);
+    }
+
+    void _Z_decrypt(const unsigned char* key, unsigned char* buf, int buf_len)
+    {
+        unsigned char iv[16] = {0};
+        if (buf_len % 16 != 0) {
+            printf("BUF LEN % 16 != 0");
+            exit(-1);
+        }
+        SM4_CBC_Decrypt(key, iv, buf, buf_len, buf, buf_len);
+    }
+
     __attribute__((constructor)) void before_main()
     {
+        sm4_encrypt = _Z_encrypt;
+        sm4_decrypt = _Z_decrypt;
+        key_exchange_func = key_exchange;
+        get_report_func = get_report;
+        is_report_valid_func = is_report_valid;
+        make_key_pair_func = make_key_pair;
+        make_shared_key_func = make_shared_key;
         pthread_rwlock_init(&(hook_enclave.rwlock), NULL);
         // g_enclave = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
         // if (!g_enclave) {
@@ -401,7 +640,7 @@ extern "C"
         }
         if ((ret = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave(
                  enclave, fid, in_buf, in_buf_size, out_buf, out_buf_size, &ms,
-                 NULL)) != CC_SUCCESS) {
+                 &ocall_table)) != CC_SUCCESS) {
             pthread_rwlock_unlock(&enclave->rwlock);
             goto exit;
         }
