@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 extern cc_enclave_t *g_enclave_context;
-extern void z_create_enclave(const char*);
+extern void z_create_enclave(const char*, bool is_proxy);
 extern void z_destroy_enclave();
 
 #ifdef __cplusplus
@@ -28,7 +28,7 @@ extern void z_destroy_enclave();
 ${ret} ${func_name}(${params}) {
   ${ret} retval;
 
-  z_create_enclave("enclave.signed.so");
+  z_create_enclave("enclave.signed.so", false);
 
   cc_enclave_result_t __Z_res = __secure_${func_name}_impl(g_enclave_context, &retval ${comma_param_names});
   if (__Z_res != CC_SUCCESS) {

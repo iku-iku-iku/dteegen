@@ -242,6 +242,7 @@ int img_verifier(in_char arr[IMG_SIZE])
 {
     char recorded_face_emb[EMBEDDING_SIZE];
     char in_face_emb[EMBEDDING_SIZE];
+    char in_face_emb_raw[EMBEDDING_SIZE];
 
     int sealed_data_len = embedding(arr, in_face_emb);
     float min_dist = INF;
@@ -254,9 +255,10 @@ int img_verifier(in_char arr[IMG_SIZE])
         std::string filename = "emb" + std::to_string(emb_id) + ".bin";
         read_file((char *)filename.c_str(), (int)filename.size(),
                   recorded_face_emb, EMBEDDING_SIZE);
-        float dist = calculate_distance(recorded_face_emb, in_face_emb);
-        eapp_print("DISTANCE WITH PERSON%d: %d x 10^-3\n", emb_id,
-                   (int)(1000 * dist));
+
+        memcpy(in_face_emb_raw, in_face_emb, EMBEDDING_SIZE);
+        float dist = calculate_distance(recorded_face_emb, in_face_emb_raw);
+        eapp_print("DISTANCE WITH PERSON%d: %d\n", emb_id, (int)dist);
 
         if (dist < min_dist) {
             min_dist = dist;

@@ -30,7 +30,12 @@ extern "C"
 #include <miracl/mirdef.h>
 #include <SM4_Enc.h>
     extern std::vector<char> (*get_report_func)(const char* enclave_path);
-    extern bool (*is_report_valid_func)(void* report, const char* enclave_path);
+    //extern bool (*is_report_valid_func)(void* report, const char* enclave_path);
+    extern bool (*is_report_valid_func)(const void *report,
+                                 const void *pub_key,
+                                 const void *pub_key_signature,
+                                 const char *enclave_path);
+ 
     extern std::pair<std::string, std::string> (*make_key_pair_func)();
     extern std::string (*make_shared_key_func)(std::string pri_key,
                                                std::string in_pub_key);
@@ -169,14 +174,51 @@ int get_meta_property(unsigned char* elf_ptr, unsigned long size,
 
 cc_enclave_t g_enclave;
 cc_enclave_t* g_enclave_context;
-#define HOOK_FUNC                                               \
-    (decltype(std::declval<cc_enclave_ops>().cc_ecall_enclave)) \
-        distributed_tee_ecall_enclave
+using cc_ecall_enclave_func_t = std::remove_const_t<decltype(std::declval<cc_enclave_ops>().cc_ecall_enclave)>;
+#define REMOTE_HOOK_FUNC (cc_ecall_enclave_func_t) distributed_tee_ecall_enclave
+#define LOCAL_HOOK_FUNC  (cc_ecall_enclave_func_t) local_tee_ecall_enclave
 
 #define CC_ECALL_ENCLAVE \
     g_enclave_context->list_ops_node->ops_desc->ops->cc_ecall_enclave
 extern "C"
 {
+    static cc_ecall_enclave_func_t cc_ecall_enclave;
+    int local_tee_ecall_enclave(cc_enclave_t *enclave,
+                                  uint32_t function_id,
+                                  const void *input_buffer,
+                                  size_t input_buffer_size,
+                                  void *output_buffer,
+                                  size_t output_buffer_size,
+                                  void *ms,
+                                  const void *ocall_table)
+    {
+        int fake_input_buffer_size = input_buffer_size + 4;
+        int fake_output_buffer_size = output_buffer_size + 1;
+        void *fake_input_buffer = malloc(fake_input_buffer_size);
+        void *fake_output_buffer = malloc(fake_output_buffer_size);
+
+        memcpy(fake_input_buffer, input_buffer, input_buffer_size);
+        memcpy(fake_output_buffer, output_buffer, output_buffer_size);
+        memset((char*)fake_input_buffer + input_buffer_size, 0, 4);
+        memset((char*)fake_output_buffer + output_buffer_size, 1, 1);
+
+        if (!cc_ecall_enclave) {
+            printf("not hooked successfully!\n");
+        }
+        int res = cc_ecall_enclave(enclave, function_id, fake_input_buffer, fake_input_buffer_size, fake_output_buffer, fake_output_buffer_size, ms, ocall_table);
+
+        memcpy(output_buffer, fake_output_buffer, output_buffer_size);
+        free(fake_input_buffer);
+        free(fake_output_buffer);
+
+        return res;
+    }
+
+    void hook_local_ecall_enclave(cc_ecall_enclave_func_t &origin) {
+        cc_ecall_enclave = origin;
+        origin = LOCAL_HOOK_FUNC;
+    }
+
     static bool is_migrate()
     {
         if (g_current_dtee_context) {
@@ -200,7 +242,7 @@ extern "C"
     }
 
     // 迁移模式下，远程调用enclave
-    struct cc_enclave_ops hook_enclave_ops = {.cc_ecall_enclave = HOOK_FUNC};
+    struct cc_enclave_ops hook_enclave_ops = {.cc_ecall_enclave = REMOTE_HOOK_FUNC};
 
     struct cc_enclave_ops_desc hook_enclave_desc = {.ops = &hook_enclave_ops};
 
@@ -411,9 +453,26 @@ extern "C"
         return res;
     }
 
-    bool is_report_valid(void* report_p, const char* enclave_path)
+    bool is_report_valid(const void *report_p,
+                                 const void *pub_key,
+                                 const void *pub_key_signature,
+                                 const char *enclave_path)
     {
         struct report_t* report = (struct report_t*)report_p;
+
+        // 0. check the pub_key signature
+        {
+            struct pubkey_t* sm_pub_key =
+                (struct pubkey_t*)report->sm.sm_pub_key;
+            struct signature_t* signature = (struct signature_t*)pub_key_signature;
+
+            if (SM2_Verify((unsigned char*)pub_key, HASH_SIZE, sm_pub_key->xA,
+                           sm_pub_key->yA, signature->r, signature->s)) {
+                printf("INVALID PUB KEY\n");
+                return false;
+            }
+        }
+
         // 1. check the signature
         {
             struct pubkey_t* sm_pub_key =
@@ -474,7 +533,7 @@ extern "C"
         return true;
     }
 
-    void z_create_enclave(const char* enclave_path)
+    void z_create_enclave(const char* enclave_path, bool is_proxy = false)
     {
         if (g_forced_enclave_path) enclave_path = g_forced_enclave_path;
         if (is_migrate() || is_transparent() && !exist_local_tee()) {
@@ -497,16 +556,17 @@ extern "C"
         }
 
         // TODO: add support for other enclaves
-        attest_param =
-            &((struct PLenclave*)g_enclave_context->private_data)->attest_param;
-        printf("eid %d nonce %d\n", attest_param->eid,
-               attest_param->report.enclave.nonce);
-        if (is_report_valid(&attest_param->report, enclave_path)) {
-            printf("IS VALID REPORT\n");
-            memcpy(&current_report, &attest_param->report,
-                   sizeof(struct report_t));
-        }
+//        attest_param =
+//            &((struct PLenclave*)g_enclave_context->private_data)->attest_param;
+//        printf("eid %d nonce %d\n", attest_param->eid,
+//               attest_param->report.enclave.nonce);
+//        if (is_report_valid(&attest_param->report, enclave_path)) {
+//            printf("IS VALID REPORT\n");
+//            memcpy(&current_report, &attest_param->report,
+//                   sizeof(struct report_t));
+//        }
 
+        cc_ecall_enclave_func_t &func = const_cast<cc_ecall_enclave_func_t&>(g_enclave_context->list_ops_node->ops_desc->ops->cc_ecall_enclave);
         if (g_enclave_context == NULL ||
             g_enclave_context->list_ops_node == NULL ||
             g_enclave_context->list_ops_node->ops_desc == NULL ||
@@ -516,6 +576,19 @@ extern "C"
             printf("Create enclave error\n");
             goto end;
         }
+
+        if (is_proxy) {
+            printf("IS PROXY OF REMOTE CLIENT\n");
+        } else {
+            printf("IS LOCAL ENCLAVE\n");
+        }
+
+        if (!is_proxy && func != LOCAL_HOOK_FUNC) {
+            cc_ecall_enclave = func;
+            void* page_start = (void*)((uintptr_t)&func & ~(getpagesize() - 1));
+            if (mprotect(page_start, getpagesize(), PROT_READ | PROT_WRITE) == 0) func = LOCAL_HOOK_FUNC;
+        }
+
 
         return;
 
@@ -552,10 +625,13 @@ extern "C"
                              char *out_key,
                              int out_key_len,
                              char *out_sealed_shared_key,
-                             int out_sealed_shared_key_len);
+                             int out_sealed_shared_key_len,
+                             char *out_key_signature,
+                             int out_key_signature_len);
 
     int key_exchange(char* in_key, int in_key_len, char* out_key,
-                     int out_key_len, char *out_sealed_shared_key, int out_sealed_shared_key_len)
+                     int out_key_len, char *out_sealed_shared_key, int out_sealed_shared_key_len,
+                     char *out_key_signature, int out_key_signature_len)
     {
         int retval;
 
@@ -564,7 +640,8 @@ extern "C"
         cc_enclave_result_t __Z_res =
             __secure_key_exchange_impl(g_enclave_context, &retval, in_key,
                                        in_key_len, out_key, out_key_len, 
-                                       out_sealed_shared_key, out_sealed_shared_key_len);
+                                       out_sealed_shared_key, out_sealed_shared_key_len,
+                                       out_key_signature, out_key_signature_len);
         if (__Z_res != CC_SUCCESS) {
             printf("Ecall enclave error\n");
             exit(-1);
@@ -618,7 +695,7 @@ extern "C"
     int ecall_proxy(const char* enclave_filename, uint32_t fid, char* in_buf,
                     int in_buf_size, char* out_buf, int out_buf_size)
     {
-        z_create_enclave(enclave_filename);
+        z_create_enclave(enclave_filename, true);
         cc_enclave_result_t ret = CC_FAIL;
         uint32_t ms = 0;
 

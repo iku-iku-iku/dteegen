@@ -187,10 +187,17 @@ extern "C" {
 
         p_buf -= 4;
         int sealed_key_len = *(int*)p_buf;
+        if (sealed_key_len == 0) {
+            return buf_len;
+        }
 
         p_buf -= sealed_key_len;
         char* key_buf = p_buf;
         unseal_data_inplace(key_buf, sealed_key_len);
+                        for (int i = 0; i < 64; i++) {
+                            eapp_print("%x\n",
+                                   (unsigned char)key_buf[i]);
+                        }
         
         p_buf -= 4;
         int origin_data_len = *(int*)p_buf;
@@ -256,11 +263,29 @@ std::string make_shared_key(std::string pri_key, std::string in_pub_key)
     mirexit();
     return res;
 }
-int key_exchange(char* in_key, int in_key_len, char* out_key, int out_key_len, char* out_encrypted_shared_key, int out_encrypted_shared_key_len) {
-    auto [pri, pub] = make_key_pair();
+
+extern "C" {
+    extern int GenerateKeyPairAndSignature(uintptr_t pri_key_ptr, uintptr_t pub_key_ptr, uintptr_t sig_ptr);
+}
+
+int key_exchange(char* in_key, int in_key_len, char* out_key, int out_key_len, char* out_encrypted_shared_key, int out_encrypted_shared_key_len, char* out_key_signature, int out_key_signature_len) {
+    // auto [pri, pub] = make_key_pair();
+    char pri_key[32];
+    char pub_key[64];
+    char signature[64];
+    (void)GenerateKeyPairAndSignature((uintptr_t)pri_key, (uintptr_t)pub_key, (uintptr_t)signature);
+    memcpy(out_key_signature, signature, out_key_signature_len);
+    
     const auto in_pub_key = std::string(in_key, in_key + in_key_len);
+    
+    const auto pri = std::string(pri_key, pri_key + sizeof(pri_key));
     const auto shared = make_shared_key(pri, in_pub_key);
-    memcpy(out_key, pub.c_str(), out_key_len);
+                        for (int i = 0; i < 64; i++) {
+                            eapp_print("%x\n",
+                                   (unsigned char)shared[i]);
+                        }
+
+    memcpy(out_key, pub_key, out_key_len);
 
     std::vector<char> shared_key(shared.begin(), shared.end());
     shared_key.resize(shared_key.size() + 200);

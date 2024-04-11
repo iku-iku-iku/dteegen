@@ -98,6 +98,12 @@ void generate_secgear(const std::filesystem::path project_root)
         skip_dir, pool);
 
     pool.wait_queue_empty();
+    for (const auto &e : g_func_calls_in_insecure_world) {
+        DTEE_LOG("FUNC CALL IN INSECURE WORLD: %s\n", e.c_str());
+    }
+    // for (const auto &e : g_func_calls_in_secure_world) {
+    //     DTEE_LOG("FUNC CALL IN SECURE WORLD: %s\n", e.c_str());
+    // }
     DTEE_LOG("END COLLECT FUNC CALL\n");
 
     std::mutex fs_mutex;

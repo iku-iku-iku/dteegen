@@ -17,6 +17,8 @@ extern "C" int get_emb_list(char out_list[sizeof(int) * MAX_EMB_CNT])
     int cnt = 0;
     int* p_list = (int*)out_list;
 
+    std::vector<int> ids;
+
     for (const auto& e : std::filesystem::directory_iterator(".")) {
         const auto& path = e.path();
         const auto path_str = path.string();
@@ -26,13 +28,19 @@ extern "C" int get_emb_list(char out_list[sizeof(int) * MAX_EMB_CNT])
             std::smatch match;
             std::regex_search(path_str, match, re);
             int id = std::stoi(match[1]);
-            p_list[cnt++] = id;
+            ids.push_back(id);
 
-            if (cnt >= MAX_EMB_CNT) {
+            if (ids.size() >= MAX_EMB_CNT) {
                 break;
             }
         }
     }
+
+    std::sort(ids.begin(), ids.end());
+    for (const auto id  : ids) {
+        p_list[cnt++] = id;
+    }
+
     return cnt;
 }
 

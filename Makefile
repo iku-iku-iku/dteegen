@@ -32,7 +32,7 @@ build_compile_deps:
 	bash ./scripts/build_compile_deps.sh
 docker:
 	bash ./scripts/update_docker_deps.sh
-	./scripts/build_dteegen.sh debug riscv64
+	./scripts/build_dteegen.sh release riscv64
 	docker build --network=host -t rv-secgear .
 run_docker:
 	docker run -v $(shell pwd):/test -v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static --network=host -w /test -it rv-secgear
@@ -49,4 +49,8 @@ build_target_raw:
 	@echo "Building $(TARGET)"
 	sudo ./scripts/gen_target.sh $(TARGET)
 	sudo ./scripts/build_in_docker.sh $(TARGET).generated
+
+deploy_to_oe:
+	scp ./test/template_project_distributed_tee.generated/build/client root@192.168.1.152:~/client_test
+	scp ./test/template_project_distributed_tee.generated/build/compute_node root@192.168.1.151:~/server_test
 

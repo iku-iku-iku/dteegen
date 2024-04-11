@@ -49,23 +49,14 @@ int main(int argc, char **argv)
                                              .name = "face_recognition",
                                              .version = "1.0"});
     if (*record) {
-        std::cout << "Recording: " << img_path
-                  << " with person ID: " << person_id << std::endl;
+        printf("Recording: %s with person ID: %d", img_path.c_str(), person_id);
         auto image_data = detect_face_and_load(img_path.c_str());
-        // std::array<char, IMG_SIZE> arr;
-        // memcpy(arr.data(), image_data, IMG_SIZE);
-
-        // int res =
-        //     call_remote_secure_function(ctx, img_recorder, arr, person_id);
         int res = img_recorder((char*)image_data, person_id);
         printf("Record successfully. Embedding length: %d\n", res);
     }
     else if (*verify) {
-        std::cout << "Verifying: " << img_to_verify_path << std::endl;
+        printf("Verifying: %s", img_to_verify_path.c_str());
         auto image_data = detect_face_and_load(img_to_verify_path.c_str());
-        // std::array<char, IMG_SIZE> arr;
-        // memcpy(arr.data(), image_data, IMG_SIZE);
-        // int res = call_remote_secure_function(ctx, img_verifier, arr);
         int res = img_verifier((char*)image_data);
         if (res == -1) {
             printf("Not valid person\n");

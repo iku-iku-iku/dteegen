@@ -22,35 +22,17 @@ class Object
 };
 static Object s("global static object ctor");
 
-static std::map<const char *, Object> vec = {{"A", "static obj in vec ctor 1"},
-                                             {"B", "static obj in vec ctor 2"}};
-
 int add_internal(int x, int y)
 {
-    eapp_print("s.len: %d\n", s.len());
+    eapp_print("s.len: %d\n", (int)s.len());
 
     return (x + y) % s.len();
 }
 }  // namespace
-extern void (*__init_array_start[])(void);
-extern void (*__init_array_end[])(void);
-void manual_init_array(void)
-{
-    for (void (**p)() = __init_array_start; p < __init_array_end; ++p) {
-        eapp_print("CALL INIT ARRAY: %p\n", *p);
-        (*p)();
-    }
-    eapp_print("CALL INIT ARRAY DONE\n");
-}
-
 int add(int x, int y) { return add_internal(x, y); }
 
 float addf(float x, float y)
 {
-#ifdef __TEE
-    manual_init_array();
-#endif
-    static Object local_static_obj("local static object ctor");
     return (x + y) * get_num();
 }
 

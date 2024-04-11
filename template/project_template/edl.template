@@ -16,7 +16,7 @@ enclave {
     include "secgear_urts.h"
     from "secgear_tstdc.edl" import *; 
     trusted {
-        public int __secure_key_exchange_impl([in, size=in_key_len] char* in_key, int in_key_len, [out, size=out_key_len] char* out_key, int out_key_len, [out, size=out_sealed_shared_key_len] char *out_sealed_shared_key, int out_sealed_shared_key_len);
+        public int __secure_key_exchange_impl([in, size=in_key_len] char* in_key, int in_key_len, [out, size=out_key_len] char* out_key, int out_key_len, [out, size=out_sealed_shared_key_len] char *out_sealed_shared_key, int out_sealed_shared_key_len, [out, size=out_key_signature_len]char* out_key_signature, int out_key_signature_len);
 **gbegin**
         public ${ret} __secure_${func_name}_impl(${edl_params});
 **end**

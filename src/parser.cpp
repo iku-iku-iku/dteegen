@@ -166,6 +166,7 @@ CXChildVisitResult entry_func_def_collect_visitor(
 
     if (kind == CXCursor_FunctionDecl) {
         auto func_name = getCursorSpelling(cursor);
+        DTEE_LOG("VISITING %s IN %s WORLD\n", func_name.c_str(), world_type_visited == WorldType::INSECURE_WORLD ? "INSECURE" : "SECURE");
 
         bool is_def_valid;
 
@@ -249,7 +250,7 @@ struct TranslationUnitManager
 
         CXIndex index = clang_createIndex(0, 0);
         const char *args[] = {
-            //   "-E"
+            "-E"
         };
         CXTranslationUnit unit = clang_parseTranslationUnit(
             index, file_path.c_str(), args, sizeof(args) / sizeof(*args),

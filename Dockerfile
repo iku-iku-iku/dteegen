@@ -11,8 +11,8 @@ strace \
     llvm \
     clang \
     libclang-dev \
-    # ocaml \
-    # ocaml-dune \
+    ocaml \
+    ocaml-dune \
     git \
     unzip \
     wget \
@@ -44,19 +44,19 @@ RUN unzip sdk.zip && mkdir -p /root/dev && mv sdk /root/dev/sdk && rm sdk.zip
 WORKDIR /root
 COPY foonathan_memory_vendor.tar.gz /root
 RUN tar -zxvf foonathan_memory_vendor.tar.gz && rm foonathan_memory_vendor.tar.gz
-WORKDIR foonathan_memory_vendor/build
+WORKDIR /root/foonathan_memory_vendor/build
 RUN make install && rm -rf /root/foonathan_memory_vendor
 
 WORKDIR /root
 COPY confidential-distributed-softbus.tar.gz /root
 RUN tar -zxvf confidential-distributed-softbus.tar.gz && rm confidential-distributed-softbus.tar.gz
-WORKDIR confidential-distributed-softbus/build
+WORKDIR /root/confidential-distributed-softbus/build
 RUN make install && cd ../.. && rm -rf /root/confidential-distributed-softbus
 
 WORKDIR /workspace/build_deps
 COPY TEE-Capability.tar.gz /workspace/build_deps
 RUN tar -zxvf TEE-Capability.tar.gz && rm TEE-Capability.tar.gz
-WORKDIR TEE-Capability/build
+WORKDIR /workspace/build_deps/TEE-Capability/build
 RUN make install && cd ../.. && rm -rf /workspace/build_deps/TEE-Capability
 
 WORKDIR /workspace

@@ -1,3 +1,4 @@
 #include "add.h"
-int add(int x, int y) { return x + y; }
-int mul(int x, int y) { return x * y; }
+
+int add_x_and_y(int x, int y) { return x + y; }
+int mul_x_and_y(int x, int y) { return x * y; }
