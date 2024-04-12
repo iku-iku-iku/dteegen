@@ -9,11 +9,7 @@ IMAGE_NAME="registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.0"
 
 USER=$(id -u):$(id -g)
 
-gen_target() {
-    docker run -v "$(pwd):/workspace/dteegen" \
-        -v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static \
-        -w /workspace/dteegen --rm -it $IMAGE_NAME /bin/bash -c "dteegen create $2 && chown -R $USER $2"
-}
+DIR=$2
 
 case $1 in
     remove)
@@ -27,9 +23,9 @@ case $1 in
             exit 1
         fi
 
-docker run -v "$(pwd):/workspace/dteegen" \
+docker run -v "$(pwd):/tmp/gen_target" \
 	-v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static \
-	-w /workspace/dteegen --rm -it $IMAGE_NAME /bin/bash -c "dteegen create $2 && chown -R $USER $2"
+	-w /workspace/dteegen --rm -it $IMAGE_NAME /bin/bash -c "dteegen create $DIR && chown -R $USER $DIR && mv $DIR /tmp/gen_target"
         ;;
     build)
         if [ ! -d $2 ]; then

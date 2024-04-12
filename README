@@ -1,0 +1,32 @@
+# dteegen
+
+## quick start
+
+### install dteegen
+```shell
+curl -o dteegen https://raw.githubusercontent.com/iku-iku-iku/dteegen/master/scripts/all_in_one.sh
+chmox +x dteegen
+sudo mv dteegen /usr/local/bin
+```
+
+### create new project
+```shell
+dteegen create new_project
+```
+
+### build project locally
+You can use cmake to build your project locally without bothering with distribution and tee.
+```shell
+dteegen build new_project
+./new_project/build/insecure/client
+```
+
+### deploy project
+```shell
+dteegen deploy new_project
+# then you can see your target(e.g. client, server, enclave.signed.so) in path like new_project.generated/build
+```
+
+- You can now send the client and enclave.signed.so to one node and server to another node. 
+- Run server in one node with tee support.
+- Run client in another node with no tee support.
