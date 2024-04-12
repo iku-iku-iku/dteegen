@@ -1,4 +1,4 @@
-.PHONY: all debug clean perf deploy generate test_project generate_cpp build_in_docker docker build_compile_deps run_docker build_target build_target_raw
+.PHONY: all debug clean perf deploy generate test_project generate_cpp build_in_docker docker build_compile_deps run_docker build_target build_target_raw push_docker
 
 all:
 	./scripts/build_dteegen.sh release
@@ -33,7 +33,10 @@ build_compile_deps:
 docker:
 	bash ./scripts/update_docker_deps.sh
 	./scripts/build_dteegen.sh release riscv64
-	docker build --network=host -t rv-secgear .
+	docker build --network=host -t dteegen .
+push_docker:
+	docker tag dteegen registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.0
+	docker push registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.0
 run_docker:
 	docker run -v $(shell pwd):/test -v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static --network=host -w /test -it rv-secgear
 
