@@ -4,6 +4,7 @@ project(helloworld C CXX)
 
 # SET DEBUG MODE
 set(CMAKE_BUILD_TYPE Debug)
+include_directories(TEE-Capability)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)

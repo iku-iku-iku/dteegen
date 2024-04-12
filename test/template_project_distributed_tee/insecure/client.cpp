@@ -1,16 +1,16 @@
 #include "../secure/add.h"
-#include "TEE-Capability/distributed_tee.h"
+#include "distributed_tee.h"
 
 int main() {
   auto ctx = init_distributed_tee_context({.side = SIDE::Client,
                                            .mode = MODE::Transparent,
                                            .name = "template_client",
                                            .version = "1.0"});
-  if (exist_local_tee()) {
-    printf("detected tee\n");
-  } else {
-    printf("no tee\n");
-  }
+  // if (exist_local_tee()) {
+  //   printf("detected tee\n");
+  // } else {
+  //   printf("no tee\n");
+  // }
 
   int res;
   int a = 1, b = 2;

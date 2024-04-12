@@ -17,6 +17,7 @@ const auto relative_path(const std::string &path, const std::string &base)
 #define INSECURE_FUNC_TEMPLATE_PATH (TEMPLATE "/insecure_func_template")
 #define PROJECT_TEMPLATE_PATH (TEMPLATE "/project_template")
 #define TEMPLATE_PROJECT_PATH (TEMPLATE "/template_project")
+#define TEE_CAPABILITY_PATH (TEMPLATE "/TEE-Capability")
 
 constexpr auto SKIP_COPY_OPTION = std::filesystem::copy_options::skip_existing;
 constexpr auto DIRECTORY_COPY_OPTION =
@@ -302,6 +303,14 @@ void create(const char *project_path)
         if (f.is_directory()) {
             std::filesystem::create_directories(new_path);
         }
+    });
+
+    for_each_file_in_path_recursive(TEE_CAPABILITY_PATH, [&](const auto &f) {
+        const auto new_path =
+            project_root / ".dev" / f.path().lexically_relative(TEMPLATE);
+        std::cout << new_path << std::endl;
+        std::filesystem::create_directories(new_path.parent_path());
+        std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION);
     });
 }
 

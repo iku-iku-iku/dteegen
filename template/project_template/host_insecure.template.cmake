@@ -10,3 +10,7 @@ path: host/insecure/CMakeLists.txt
 # See the Mulan PSL v2 for more details.
 include(./function.cmake)
 ${root_cmake}
+find_package(foonathan_memory REQUIRED)
+foreach(EXE IN LISTS ${TEE_EXECUTABLE_TARGETS})
+    target_link_libraries(${EXE} distributed_tee fastrtps fastcdr foonathan_memory rt)
+endforeach()
