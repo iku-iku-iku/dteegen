@@ -466,7 +466,16 @@ extern "C"
                 (struct pubkey_t*)report->sm.sm_pub_key;
             struct signature_t* signature = (struct signature_t*)pub_key_signature;
 
-            if (SM2_Verify((unsigned char*)pub_key, HASH_SIZE, sm_pub_key->xA,
+//auto print_str = [](int len, const char* name, const void* p) {
+//            printf("%s: \n", name);
+//            for (int i = 0; i < len; i++) printf("%02x ", ((unsigned char*)p)[i]);
+//            printf("\n");
+//};
+//print_str(64, "pub sig", signature);
+//print_str(64, "pub key", pub_key);
+//print_str(32, "sm pub key", sm_pub_key);
+
+            if (SM2_Verify((unsigned char*)pub_key, SIGNATURE_SIZE, sm_pub_key->xA,
                            sm_pub_key->yA, signature->r, signature->s)) {
                 printf("INVALID PUB KEY\n");
                 return false;
@@ -556,14 +565,14 @@ extern "C"
         }
 
         // TODO: add support for other enclaves
-//        attest_param =
-//            &((struct PLenclave*)g_enclave_context->private_data)->attest_param;
+        attest_param =
+            &((struct PLenclave*)g_enclave_context->private_data)->attest_param;
 //        printf("eid %d nonce %d\n", attest_param->eid,
 //               attest_param->report.enclave.nonce);
+        memcpy(&current_report, &attest_param->report,
+                sizeof(struct report_t));
 //        if (is_report_valid(&attest_param->report, enclave_path)) {
 //            printf("IS VALID REPORT\n");
-//            memcpy(&current_report, &attest_param->report,
-//                   sizeof(struct report_t));
 //        }
 
         cc_ecall_enclave_func_t &func = const_cast<cc_ecall_enclave_func_t&>(g_enclave_context->list_ops_node->ops_desc->ops->cc_ecall_enclave);

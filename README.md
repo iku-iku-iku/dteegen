@@ -240,10 +240,3 @@ export LD_LIBRARY_PATH=/lib64
 ./client
 
 ```
-./start_client.sh
-
-- You can now send the client and enclave.signed.so to one node and server to another node. 
-- Run server in one node with tee support.
-- Run client in another node with no tee support.
-
-### 

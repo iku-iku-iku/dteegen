@@ -1,4 +1,4 @@
-FROM riscv64/ubuntu:20.04
+FROM ubuntu:20.04
 
 WORKDIR /workspace
 ARG DEBIAN_FRONTEND=noninteractive
@@ -17,7 +17,11 @@ strace \
     unzip \
     wget \
     vim \
-    curl
+    curl \
+    software-properties-common \
+    gcc-riscv64-linux-gnu \
+    g++-riscv64-linux-gnu \
+    binutils-riscv64-linux-gnu
 
 COPY libjustworkaround.a /usr/lib
 COPY libunwind.a /usr/lib

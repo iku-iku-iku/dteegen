@@ -273,13 +273,21 @@ int key_exchange(char* in_key, int in_key_len, char* out_key, int out_key_len, c
     char pri_key[32];
     char pub_key[64];
     char signature[64];
+    memset(pri_key, 0, sizeof(pri_key));
+    memset(pub_key, 0, sizeof(pub_key));
+    memset(signature, 0, sizeof(signature));
+    // TODO: hide or fix
     (void)GenerateKeyPairAndSignature((uintptr_t)pri_key, (uintptr_t)pub_key, (uintptr_t)signature);
+    eapp_print("signature of generated pub key: \n");
+    for (int i = 0; i < 64; i++) eapp_print("%x\n",
+                                   (unsigned char)signature[i]);
     memcpy(out_key_signature, signature, out_key_signature_len);
     
     const auto in_pub_key = std::string(in_key, in_key + in_key_len);
     
     const auto pri = std::string(pri_key, pri_key + sizeof(pri_key));
     const auto shared = make_shared_key(pri, in_pub_key);
+    eapp_print("shared key: \n");
                         for (int i = 0; i < 64; i++) {
                             eapp_print("%x\n",
                                    (unsigned char)shared[i]);

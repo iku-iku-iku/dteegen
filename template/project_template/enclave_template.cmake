@@ -237,8 +237,9 @@ if(CC_PL)
   set(CRT ${MUSL_LIB_DIR}/crt1.o)
   set(MUSL_LIBCPP ${MY_MUSL_LIB_DIR}/libstdc++.a)
   set(MUSL_LIBATOMIC ${MY_MUSL_LIB_DIR}/libatomic.a)
-  set(CC gcc)
-  set(CXX g++)
+  set(CC riscv64-linux-gnu-gcc)
+  set(CXX riscv64-linux-gnu-g++)
+  set(LD riscv64-linux-gnu-ld)
   set(GCC_LIB ${SDK_LIB_DIR}/libgcc.a)
   set(SECGEAR_TEE_LIB ${CMAKE_BINARY_DIR}/lib/libsecgear_tee.a)
 
@@ -279,7 +280,7 @@ if(CC_PL)
   add_custom_command(
         OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB} ${META_SECTION}
-        COMMAND ld -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lsecgear_tee -lc -lpthread
+        COMMAND ${LD} -static -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lsecgear_tee -lc -lpthread
             -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${META_SECTION} ${CRT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SECGEAR_TEE_LIB} ${SDK_APP_LIB} ${SDK_GM_LIB} ${STATIC_LIBS} ${MUSL_LIBCPP}
              /usr/lib/libunwind.a ${MUSL_LIBC} ${GCC_LIB} ${MUSL_LIBATOMIC} /usr/lib/libjustworkaround.a -T ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds
         COMMAND chmod -x ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}

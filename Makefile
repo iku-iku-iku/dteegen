@@ -32,13 +32,12 @@ build_compile_deps:
 	bash ./scripts/build_compile_deps.sh
 docker:
 	bash ./scripts/update_docker_deps.sh
-	./scripts/build_dteegen.sh release riscv64
 	docker build --network=host -t dteegen .
 push_docker:
 	docker tag dteegen registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.0
 	docker push registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.0
 run_docker:
-	docker run -v $(shell pwd):/test -v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static --network=host -w /test -it rv-secgear
+	docker run -v $(shell pwd):/test --network=host -w /test -it dteegen
 
 
 build_target: 
