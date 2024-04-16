@@ -41,7 +41,7 @@ bash build.sh --product-name qemu_riscv64_virt_linux_system --ccache
 
 ### build opensbi and penglai driver
 ```shell
-git clone -b oh git@github.com:iku-iku-iku/Penglai-Enclave-sPMP.git
+git clone -b distributed-tee git@github.com:iku-iku-iku/Penglai-Enclave-sPMP.git
 cd Penglai-Enclave-sPMP
 ./build_opensbi.sh
 cp opensbi-1.2/build-oe/qemu-virt/platform/generic/firmware/fw_jump.bin $OH_HOME
