@@ -68,10 +68,10 @@ dteegen create $PROJECT_NAME
 ```
 
 ### build project locally
-NOTE: this step is optional. Just for demonstrating that you can use cmake to build project locally without bothering with distribution and tee.
+**NOTE**: this step is optional. Just for demonstrating that you can use cmake to build project locally without bothering with distribution and tee.
 ```shell
 dteegen build $PROJECT_NAME
-./new_project/build/insecure/client
+./$PROJECT_NAME/build/insecure/client
 ```
 
 ### deploy project
