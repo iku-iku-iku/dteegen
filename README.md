@@ -57,7 +57,7 @@ sudo umount /tmp/mount
 ### install dteegen
 ```shell
 curl -o dteegen https://raw.githubusercontent.com/iku-iku-iku/dteegen/master/scripts/all_in_one.sh
-chmox +x dteegen
+chmod +x dteegen
 sudo mv dteegen /usr/local/bin
 ```
 
