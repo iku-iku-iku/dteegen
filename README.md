@@ -8,7 +8,15 @@ If you don't want to build OpenHarmony on your own, you can follow the steps bel
 ```shell
 mkdir polyos && cd polyos
 export OH_HOME=`pwd`
-curl 
+wget https://filebin.net/69mg7qaaqfhu6yhd/chip_prod.img
+wget https://filebin.net/69mg7qaaqfhu6yhd/Image
+wget https://filebin.net/69mg7qaaqfhu6yhd/sys_prod.img
+wget https://filebin.net/69mg7qaaqfhu6yhd/system.img
+wget https://filebin.net/69mg7qaaqfhu6yhd/updater.img
+wget https://filebin.net/69mg7qaaqfhu6yhd/userdata.img
+wget https://filebin.net/69mg7qaaqfhu6yhd/vendor.img
+mkdir -p out/riscv64_virt/packages/phone/images
+mv Image *.img out/riscv64_virt/packages/phone/images
 
 ```
 
