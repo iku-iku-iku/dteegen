@@ -15,12 +15,16 @@ TARGET=$(realpath $1)
 mkdir -p $TARGET/build
 
 # 定义Docker镜像名称
-IMAGE_NAME="rv-secgear"
+IMAGE_NAME="dteegen"
 
 # 启动Docker容器，并映射generated目录
 docker run -v "$TARGET:/workspace/secGear/examples/generated" \
 	-v "$TARGET/build:/workspace/secGear/debug" \
 	-w /workspace/secGear/debug -it $IMAGE_NAME /bin/bash -c "
+    export C_INCLUDE_PATH=/usr/local/include/:$C_INCLUDE_PATH
+    export CPLUS_INCLUDE_PATH=/usr/local/include/:$CPLUS_INCLUDE_PATH
+    export CC=riscv64-linux-gnu-gcc &&
+    export CXX=riscv64-linux-gnu-g++ &&
     export PATH=/root/.opam/4.12.0/bin:$PATH:/workspace/secGear/debug
     cmake -DCMAKE_BUILD_TYPE=Debug -DENCLAVE=PL -DSDK_PATH=/root/dev/sdk -DSSL_PATH=/root/dev/sdk/penglai_sdk_ssl .. &&
     make -j8 && 

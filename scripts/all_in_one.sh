@@ -12,6 +12,16 @@ USER=$(id -u):$(id -g)
 DIR=$2
 
 case $1 in
+    inject)
+        if [ ! -d $2 ]; then
+            echo "$2 is not a directory"
+            exit 1
+        fi
+        docker run -v "$2:/tmp/mount" --rm -it $IMAGE_NAME /bin/bash -c "
+        cp -r /usr/riscv64-linux-gnu/lib/* /tmp/mount/system/lib64 && 
+        cp /usr/riscv64-linux-gnu/lib/ld-linux-riscv64-lp64d.so.1 /tmp/mount/system/lib
+        "
+        ;;
     remove)
         if [ -d $2 ]; then
             rm -rf $2
@@ -24,7 +34,6 @@ case $1 in
         fi
 
 docker run -v "$(pwd):/tmp/gen_target" \
-	-v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static \
 	-w /workspace/dteegen --rm -it $IMAGE_NAME /bin/bash -c "dteegen create $DIR && chown -R $USER $DIR && mv $DIR /tmp/gen_target"
         ;;
     build)
@@ -52,8 +61,11 @@ TARGET=$(realpath $TARGET)
 docker run -v "$PROJECT_DIR:/workspace/dteegen/$PROJECT_NAME" \
 	-v "$TARGET:/workspace/secGear/examples/generated" \
 	-v "$TARGET/build:/workspace/secGear/debug" \
-	-v /usr/bin/qemu-riscv64-static:/usr/bin/qemu-riscv64-static \
 	-w /workspace/dteegen -it $IMAGE_NAME /bin/bash -c "
+    export C_INCLUDE_PATH=/usr/local/include/:$C_INCLUDE_PATH
+    export CPLUS_INCLUDE_PATH=/usr/local/include/:$CPLUS_INCLUDE_PATH
+    export CC=riscv64-linux-gnu-gcc &&
+    export CXX=riscv64-linux-gnu-g++ &&
     export PATH=/root/.opam/4.12.0/bin:\$PATH:/workspace/secGear/debug &&
     echo 'dteegen convert $PROJECT_NAME' &&
     dteegen convert $PROJECT_NAME &&
