@@ -105,7 +105,7 @@ sudo umount /tmp/mount
 ```
 
 ### copy images
-
+Since instances can not share the same images, we need to copy them.
 ```shell
 sudo cp -r $OH_HOME/out/riscv64_virt/packages/phone/images{,1}
 sudo cp -r $OH_HOME/out/riscv64_virt/packages/phone/images{,2}
