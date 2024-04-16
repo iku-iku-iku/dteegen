@@ -46,6 +46,8 @@ cd Penglai-Enclave-sPMP
 ./build_opensbi.sh
 cp opensbi-1.2/build-oe/qemu-virt/platform/generic/firmware/fw_jump.bin $OH_HOME
 # since we have installed penglai.ko in provisoned images, you can skip following steps
+wget https://filebin.net/m6q51s538bgd12p1/oh-kernel.tar.gz
+tar -zxvf oh-kernel.tar.gz
 ./docker_cmd.sh docker
 ./scripts/build_enclave_driver.sh
 mkdir -p /tmp/mount
