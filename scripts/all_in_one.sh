@@ -5,7 +5,7 @@ if [ $# -ne 2 ]; then
 fi
 
 # 定义Docker镜像名称
-IMAGE_NAME="registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.0"
+IMAGE_NAME="registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.1"
 
 USER=$(id -u):$(id -g)
 
