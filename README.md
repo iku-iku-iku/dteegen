@@ -9,6 +9,7 @@ It takes only 6 steps to get started!
 ```shell
 git clone https://github.com/iku-iku-iku/dteegen.git
 cd dteegen
+git submodule update
 ```
 
 2. Build OpenHarmony.
@@ -41,7 +42,6 @@ export OH_IMAGES=$OH_HOME/out/riscv64_virt/packages/phone/images
 3. Build opensbi and penglai driver.
 
 ```shell
-git clone -b distributed-tee git@github.com:iku-iku-iku/Penglai-Enclave-sPMP.git
 cd Penglai-Enclave-sPMP
 export PENGLAI_HOME=`pwd`
 # build opensbi
