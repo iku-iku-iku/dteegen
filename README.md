@@ -85,7 +85,8 @@ dteegen deploy $PROJECT_NAME
 # copy opensbi to OH_HOME
 cp $PENGLAI_HOME/opensbi-1.2/build-oe/qemu-virt/platform/generic/firmware/fw_jump.bin $OH_HOME
 # copy scripts to OH_HOME
-cp $PENGLAI_HOME/scripts/{start_server.sh,start_client.sh} $OH_HOME
+cp $PENGLAI_HOME/scripts/start_server.sh $OH_HOME
+cp $PENGLAI_HOME/scripts/start_client.sh $OH_HOME
 # copy penglai driver to OH's /data
 mkdir -p /tmp/mount
 sudo mount -o loop $OH_IMAGES/userdata.img /tmp/mount
@@ -99,7 +100,9 @@ sudo umount /tmp/mount
 # inject built files to OpenHarmony images
 mkdir -p /tmp/mount
 sudo mount -o loop $OH_IMAGES/userdata.img /tmp/mount
-sudo cp "$PROJECT_PATH".generated/build/{server,client,enclave.signed.so} /tmp/mount
+sudo cp "$PROJECT_PATH".generated/build/server /tmp/mount
+sudo cp "$PROJECT_PATH".generated/build/client /tmp/mount
+sudo cp "$PROJECT_PATH".generated/build/enclave.signed.so /tmp/mount
 sudo umount /tmp/mount
 sudo mount -o loop $OH_IMAGES/system.img /tmp/mount
 sudo cp "$PROJECT_PATH".generated/build/lib/penglai/libpenglai_0.so /tmp/mount/system/lib64
