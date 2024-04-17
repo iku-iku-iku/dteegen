@@ -11,7 +11,7 @@ TIPS: you can copy paste the commands to run.
 ```shell
 git clone https://github.com/iku-iku-iku/dteegen.git
 cd dteegen
-git submodule update
+git submodule update --init --recursive
 ```
 
 2. Build OpenHarmony.
