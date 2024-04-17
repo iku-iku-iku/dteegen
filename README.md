@@ -4,6 +4,8 @@
 
 It takes only 6 steps to get started!
 
+TIPS: you can copy paste the commands to run.
+
 1. Clone this repo.
 
 ```shell
@@ -73,7 +75,7 @@ dteegen deploy $PROJECT_NAME
 ```
 
 
-5. Do some preparation for running OpenHarmony. TIPS: you can copy paste the following commands to run altogether.
+5. Do some preparation for running OpenHarmony.
 
 ```shell
 # copy opensbi to OH_HOME
