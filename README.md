@@ -50,6 +50,7 @@ export PENGLAI_HOME=`pwd`
 bash ./build_opensbi.sh
 # build the driver
 bash ./scripts/build_driver_for_oh.sh
+cd ..
 ```
 
 4. Use dteegen for quick demo starter.
@@ -61,6 +62,7 @@ chmod +x dteegen
 sudo mv dteegen /usr/local/bin
 # create new project
 export PROJECT_NAME=new_project
+export PORJECT_PATH=`pwd`/$PROJECT_NAME
 dteegen create $PROJECT_NAME
 
 # build project locally
@@ -95,10 +97,10 @@ sudo umount /tmp/mount
 # inject built files to OpenHarmony images
 mkdir -p /tmp/mount
 sudo mount -o loop $OH_IMAGES/userdata.img /tmp/mount
-sudo cp $PROJECT_NAME.generated/build/{server,client,enclave.signed.so} /tmp/mount
+sudo cp $PROJECT_PATH.generated/build/{server,client,enclave.signed.so} /tmp/mount
 sudo umount /tmp/mount
 sudo mount -o loop $OH_IMAGES/system.img /tmp/mount
-sudo cp $PROJECT_NAME.generated/build/lib/penglai/libpenglai_0.so /tmp/mount/system/lib64
+sudo cp $PROJECT_PATH.generated/build/lib/penglai/libpenglai_0.so /tmp/mount/system/lib64
 sudo umount /tmp/mount
 # Since instances can not share the same images, we need to copy them.
 sudo cp -r "$OH_IMAGES"{,1}
