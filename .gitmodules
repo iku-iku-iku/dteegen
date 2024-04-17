@@ -6,3 +6,7 @@
 	path = TEE-Capability
 	url = https://github.com/iku-iku-iku/TEE-Capability.git
 	branch = my_factor
+[submodule "secGear"]
+	path = secGear
+	url = https://github.com/iku-iku-iku/secGear.git
+	branch = distributed-tee
