@@ -21,7 +21,7 @@ If you don't want to build OpenHarmony on your own, you can use the prebuilt ima
 ```shell
 bash ./scripts/download_prebuilt.sh
 export OH_HOME=`pwd`/polyos
-export OH_IMAGES=`pwd`/polyos/images
+export OH_IMAGES=$OH_HOME/out/riscv64_virt/packages/phone/images
 ```
 
 If you want to build OpenHarmony on your own, you can follow the steps below.
