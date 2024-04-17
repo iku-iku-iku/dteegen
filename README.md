@@ -20,6 +20,8 @@ If you don't want to build OpenHarmony on your own, you can use the prebuilt ima
 
 ```shell
 bash ./scripts/download_prebuilt.sh
+export OH_HOME=`pwd`/polyos
+export OH_IMAGES=`pwd`/polyos/images
 ```
 
 If you want to build OpenHarmony on your own, you can follow the steps below.
@@ -103,6 +105,7 @@ sudo mount -o loop $OH_IMAGES/system.img /tmp/mount
 sudo cp $PROJECT_PATH.generated/build/lib/penglai/libpenglai_0.so /tmp/mount/system/lib64
 sudo umount /tmp/mount
 # Since instances can not share the same images, we need to copy them.
+sudo rm -rf "$OH_IMAGES"{1,2}
 sudo cp -r "$OH_IMAGES"{,1}
 sudo cp -r "$OH_IMAGES"{,2}
 # create bridge
