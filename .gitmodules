@@ -2,3 +2,7 @@
 	path = Penglai-Enclave-sPMP
 	url = https://github.com/iku-iku-iku/Penglai-Enclave-sPMP.git
 	branch = distributed-tee
+[submodule "TEE-Capability"]
+	path = TEE-Capability
+	url = https://github.com/iku-iku-iku/TEE-Capability.git
+	branch = my_factor
