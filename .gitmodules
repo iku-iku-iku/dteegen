@@ -1,0 +1,4 @@
+[submodule "Penglai-Enclave-sPMP"]
+	path = Penglai-Enclave-sPMP
+	url = https://github.com/iku-iku-iku/Penglai-Enclave-sPMP.git
+	branch = distributed-tee
