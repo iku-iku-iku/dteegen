@@ -14,11 +14,13 @@ cd dteegen
 2. Build OpenHarmony.
 
 If you don't want to build OpenHarmony on your own, you can use the prebuilt images provided by us.
+
 ```shell
 bash ./scripts/download_prebuilt.sh
 ```
 
 If you want to build OpenHarmony on your own, you can follow the steps below.
+
 ```shell
 # install dependencies
 sudo apt install git-lfs
@@ -37,6 +39,7 @@ export OH_IMAGES=$OH_HOME/out/riscv64_virt/packages/phone/images
 ```
 
 3. Build opensbi and penglai driver.
+
 ```shell
 git clone -b distributed-tee git@github.com:iku-iku-iku/Penglai-Enclave-sPMP.git
 cd Penglai-Enclave-sPMP
@@ -70,7 +73,8 @@ dteegen deploy $PROJECT_NAME
 ```
 
 
-5. Do some preparation for run OpenHarmony. TIPS: you can copy paste the following commands to run altogether.
+5. Do some preparation for running OpenHarmony. TIPS: you can copy paste the following commands to run altogether.
+
 ```shell
 # copy opensbi to OH_HOME
 cp $PENGLAI_HOME/opensbi-1.2/build-oe/qemu-virt/platform/generic/firmware/fw_jump.bin $OH_HOME
@@ -105,7 +109,6 @@ sudo iptables -P FORWARD ACCEPT
 ```
 
 6. Run server and client.
-
 
 ```shell
 # Tmux is recommended to run server and client separately. 
