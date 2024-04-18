@@ -17,10 +17,17 @@ case $1 in
             echo "$2 is not a directory"
             exit 1
         fi
-        docker run -v "$2:/tmp/mount" --rm -it $IMAGE_NAME /bin/bash -c "
+        if [ ! -d $3 ]; then
+            echo "$3 is not a directory"
+            exit 1
+        fi
+        MOUNT_PATH=$2
+        PROJECT_PATH=$3
+        docker run -v "$MOUNT_PATH:/tmp/mount" --rm -it $IMAGE_NAME /bin/bash -c "
         cp -r /usr/riscv64-linux-gnu/lib/* /tmp/mount/system/lib && 
         cp /usr/riscv64-linux-gnu/lib/ld-linux-riscv64-lp64d.so.1 /tmp/mount/system/lib
         "
+        sudo cp "$PROJECT_PATH".generated/build/lib/penglai/libpenglai_0.so "$MOUNT_PATH"/system/lib64
         ;;
     remove)
         if [ -d $2 ]; then
