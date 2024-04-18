@@ -466,18 +466,19 @@ extern "C"
                 (struct pubkey_t*)report->sm.sm_pub_key;
             struct signature_t* signature = (struct signature_t*)pub_key_signature;
 
-//auto print_str = [](int len, const char* name, const void* p) {
-//            printf("%s: \n", name);
-//            for (int i = 0; i < len; i++) printf("%02x ", ((unsigned char*)p)[i]);
-//            printf("\n");
-//};
-//print_str(64, "pub sig", signature);
-//print_str(64, "pub key", pub_key);
-//print_str(32, "sm pub key", sm_pub_key);
 
             if (SM2_Verify((unsigned char*)pub_key, SIGNATURE_SIZE, sm_pub_key->xA,
                            sm_pub_key->yA, signature->r, signature->s)) {
                 printf("INVALID PUB KEY\n");
+auto print_str = [](int len, const char* name, const void* p) {
+            printf("%s: \n", name);
+            for (int i = 0; i < len; i++) printf("%02x ", ((unsigned char*)p)[i]);
+            printf("\n");
+};
+print_str(64, "pub sig", signature);
+print_str(64, "pub key", pub_key);
+print_str(64, "sm pub key", sm_pub_key);
+print_str(sizeof(*report), "report", report);
                 return false;
             }
         }

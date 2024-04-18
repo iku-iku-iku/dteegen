@@ -11,13 +11,8 @@ strace \
     llvm \
     clang \
     libclang-dev \
-    ocaml \
-    ocaml-dune \
     git \
     unzip \
-    wget \
-    vim \
-    curl \
     software-properties-common \
     gcc-riscv64-linux-gnu \
     g++-riscv64-linux-gnu \
@@ -26,7 +21,7 @@ strace \
 COPY libjustworkaround.a /usr/lib
 COPY libunwind.a /usr/lib
 
-COPY build_riscv64/dteegen /usr/bin/dteegen
+COPY build/dteegen /usr/bin/dteegen
 COPY codegen /usr/bin
 RUN mkdir -p /workspace/dteegen
 COPY template /workspace/dteegen/template

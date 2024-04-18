@@ -120,16 +120,15 @@ sudo iptables -P FORWARD ACCEPT
 
 6. Run server and client.
 
+NOTE: tmux is recommended to run server and client separately. 
 ```shell
-# Tmux is recommended to run server and client separately. 
 # --------------------------------
 # run server with tee ability
 cd $OH_HOME
 ./start_server.sh
-
+# in OH
 cd data
 insmod penglai.ko
-export LD_LIBRARY_PATH=/lib64
 ./server
 
 # --------------------------------
@@ -137,8 +136,8 @@ export LD_LIBRARY_PATH=/lib64
 
 cd $OH_HOME
 ./start_client.sh
+# in OH
 cd data
-export LD_LIBRARY_PATH=/lib64
 ./client
 
 ```

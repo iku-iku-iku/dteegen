@@ -18,7 +18,7 @@ case $1 in
             exit 1
         fi
         docker run -v "$2:/tmp/mount" --rm -it $IMAGE_NAME /bin/bash -c "
-        cp -r /usr/riscv64-linux-gnu/lib/* /tmp/mount/system/lib64 && 
+        cp -r /usr/riscv64-linux-gnu/lib/* /tmp/mount/system/lib && 
         cp /usr/riscv64-linux-gnu/lib/ld-linux-riscv64-lp64d.so.1 /tmp/mount/system/lib
         "
         ;;
