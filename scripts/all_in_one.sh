@@ -1,6 +1,6 @@
 #!/bin/bash
-if [ $# -ne 2 ]; then
-	echo "Usage: $0 <command> <target>"
+if [ $# -lt 2 ]; then
+	echo "Usage: $0 <command> <target> [optional]"
 	exit 1
 fi
 
