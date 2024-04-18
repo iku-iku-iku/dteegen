@@ -59,6 +59,7 @@ cd ..
 
 ```shell
 # download dteegen
+rm -rf dteegen
 curl -o dteegen https://raw.githubusercontent.com/iku-iku-iku/dteegen/master/scripts/all_in_one.sh
 chmod +x dteegen
 sudo mv dteegen /usr/local/bin
