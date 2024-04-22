@@ -34,11 +34,9 @@ WORKDIR /workspace
 COPY riscv64-linux-musl.tar.gz /workspace
 RUN tar -zxvf riscv64-linux-musl.tar.gz && rm riscv64-linux-musl.tar.gz
 
+WORKDIR /workspace
 COPY secGear.tar.gz /workspace
 RUN tar -zxvf secGear.tar.gz && rm secGear.tar.gz
-
-COPY sdk.zip /workspace
-RUN unzip sdk.zip && mkdir -p /root/dev && mv sdk /root/dev/sdk && rm sdk.zip
 
 WORKDIR /root
 COPY foonathan_memory_vendor.tar.gz /root
@@ -72,6 +70,11 @@ ENV HTTPS_PROXY "http://172.17.0.1:7890"
 
 COPY penglai_sign /usr/bin
 COPY SM2PrivateKey.pem /root
+
+WORKDIR /workspace
+COPY sdk.zip /workspace
+RUN unzip sdk.zip && mkdir -p /root/dev && mv sdk /root/dev/sdk && rm sdk.zip
+
 
 CMD ["/bin/bash"]  
 

@@ -209,7 +209,6 @@ extern "C" {
 
     // ENCRYPTED_DATA | OUT_LEN(4B) | SEALED_KEY | SEALED_KEY_LEN(4B) | DECRYPTED(1B)
     void __encrypt_in_enclave(char* buf, int buf_len, const char* func_name) {
-        return;
         if (strcmp(func_name, "ecall___secure_key_exchange_impl") == 0) return;
         char *p_buf = buf + buf_len;
 
