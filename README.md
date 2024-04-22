@@ -88,28 +88,23 @@ cp $PENGLAI_HOME/opensbi-1.2/build-oe/qemu-virt/platform/generic/firmware/fw_jum
 # copy scripts to OH_HOME
 cp $PENGLAI_HOME/scripts/start_server.sh $OH_HOME
 cp $PENGLAI_HOME/scripts/start_client.sh $OH_HOME
-# copy penglai driver to OH's /data
+
+# Create the mnt ddirectory
 export MOUNT_PATH=/tmp/mount
 mkdir -p $MOUNT_PATH
-sudo mount -o loop $OH_IMAGES/userdata.img $MOUNT_PATH
-cp $PENGLAI_HOME/penglai-enclave-driver/penglai.ko $MOUNT_PATH
-sudo umount $MOUNT_PATH
+
+# copy penglai driver to OH's /data
+./scripts/copy_penglai_driver.sh
+
 # inject depencies to OpenHarmony. NOTE: This step is optional since we have installed all libs in the provisoned images.
-mkdir -p $MOUNT_PATH
-sudo mount -o loop $OH_IMAGES/system.img $MOUNT_PATH
-dteegen inject $MOUNT_PATH $PROJECT_PATH
-sudo umount $MOUNT_PATH
+./scripts/copy_penglai_dep.sh
+
 # inject built files to OpenHarmony images
-mkdir -p $MOUNT_PATH
-sudo mount -o loop $OH_IMAGES/userdata.img $MOUNT_PATH
-sudo cp "$PROJECT_PATH".generated/build/server $MOUNT_PATH
-sudo cp "$PROJECT_PATH".generated/build/client $MOUNT_PATH
-sudo cp "$PROJECT_PATH".generated/build/enclave.signed.so $MOUNT_PATH
-sudo umount $MOUNT_PATH
+./scripts/copy_penglai_app.sh
+
 # Since instances can not share the same images, we need to copy them.
-sudo rm -rf "$OH_IMAGES"{1,2}
-sudo cp -r "$OH_IMAGES"{,1}
-sudo cp -r "$OH_IMAGES"{,2}
+./scripts/create_images.sh
+
 # create bridge
 sudo ip link add name br0 type bridge
 sudo ip link set dev br0 up
