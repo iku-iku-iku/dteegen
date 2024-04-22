@@ -25,3 +25,5 @@ callgrind*
 *.svg
 *.data*
 tmp
+*.pem
+penglai_sign
