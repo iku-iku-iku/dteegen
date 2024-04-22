@@ -34,8 +34,8 @@ docker:
 	bash ./scripts/update_docker_deps.sh
 	docker build --network=host -t dteegen .
 push_docker:
-	docker tag dteegen registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.1
-	docker push registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.1
+	docker tag dteegen registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.2
+	docker push registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.2
 run_docker:
 	docker run -v $(shell pwd):/test --network=host -w /test -it dteegen
 

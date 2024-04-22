@@ -207,8 +207,9 @@ extern "C" {
         return origin_data_len;
     }
 
-    // ENCRYPTED_DATA | OUT_LEN(4B) | SEALED_KEY | SEALED_KEY_LEN(4B) 
+    // ENCRYPTED_DATA | OUT_LEN(4B) | SEALED_KEY | SEALED_KEY_LEN(4B) | DECRYPTED(1B)
     void __encrypt_in_enclave(char* buf, int buf_len, const char* func_name) {
+        return;
         if (strcmp(func_name, "ecall___secure_key_exchange_impl") == 0) return;
         char *p_buf = buf + buf_len;
 
@@ -269,18 +270,13 @@ extern "C" {
 }
 
 int key_exchange(char* in_key, int in_key_len, char* out_key, int out_key_len, char* out_encrypted_shared_key, int out_encrypted_shared_key_len, char* out_key_signature, int out_key_signature_len) {
-    // auto [pri, pub] = make_key_pair();
     char pri_key[32];
     char pub_key[64];
     char signature[64];
     memset(pri_key, 0, sizeof(pri_key));
     memset(pub_key, 0, sizeof(pub_key));
     memset(signature, 0, sizeof(signature));
-    // TODO: hide or fix
     (void)GenerateKeyPairAndSignature((uintptr_t)pri_key, (uintptr_t)pub_key, (uintptr_t)signature);
-    eapp_print("signature of generated pub key: \n");
-    for (int i = 0; i < 64; i++) eapp_print("%x\n",
-                                   (unsigned char)signature[i]);
     memcpy(out_key_signature, signature, out_key_signature_len);
     
     const auto in_pub_key = std::string(in_key, in_key + in_key_len);

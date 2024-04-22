@@ -17,6 +17,6 @@ WORKDIR /root
 COPY confidential-distributed-softbus.tar.gz /root
 RUN tar -zxvf confidential-distributed-softbus.tar.gz && rm confidential-distributed-softbus.tar.gz
 WORKDIR confidential-distributed-softbus/build
-RUN make install && cd ../.. && rm -rf /root/confidential-distributed-softbus
+#RUN make install && cd ../.. && rm -rf /root/confidential-distributed-softbus
 
 CMD ["/bin/bash"]

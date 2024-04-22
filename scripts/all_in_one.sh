@@ -5,7 +5,7 @@ if [ $# -lt 2 ]; then
 fi
 
 # 定义Docker镜像名称
-IMAGE_NAME="registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.1"
+IMAGE_NAME="registry.cn-hangzhou.aliyuncs.com/dteegen/dteegen:1.0.2"
 
 USER=$(id -u):$(id -g)
 
@@ -31,7 +31,7 @@ case $1 in
         ;;
     remove)
         if [ -d $2 ]; then
-            rm -rf $2
+            rm -rf $2 $2.generated
         fi
         ;;
     create)
@@ -83,7 +83,7 @@ docker run -v "$PROJECT_DIR:/workspace/dteegen/$PROJECT_NAME" \
     make -j8 &&
     cp -r /workspace/secGear/debug/examples/generated/host/insecure/* /workspace/secGear/examples/generated/build/ &&
     mv /workspace/secGear/examples/generated/enclave/penglai*ELF /workspace/secGear/examples/generated/enclave/enclave.signed.so &&
-    cp /workspace/secGear/examples/generated/enclave/enclave.signed.so /workspace/secGear/examples/generated/build/
+    penglai_sign sign -enclave /workspace/secGear/examples/generated/enclave/enclave.signed.so -key /root/SM2PrivateKey.pem -out /workspace/secGear/examples/generated/build/enclave.signed.so
 "
         ;;
 

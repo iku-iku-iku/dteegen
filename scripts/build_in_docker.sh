@@ -30,5 +30,5 @@ docker run -v "$TARGET:/workspace/secGear/examples/generated" \
     make -j8 && 
     cp -r /workspace/secGear/debug/examples/generated/host/insecure/* /workspace/secGear/examples/generated/build/ &&
     mv /workspace/secGear/examples/generated/enclave/penglai*ELF /workspace/secGear/examples/generated/enclave/enclave.signed.so &&
-    cp /workspace/secGear/examples/generated/enclave/enclave.signed.so /workspace/secGear/examples/generated/build/
+    penglai_sign sign -enclave /workspace/secGear/examples/generated/enclave/enclave.signed.so -key /root/SM2PrivateKey.pem -out /workspace/secGear/examples/generated/build/enclave.signed.so
 "

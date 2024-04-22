@@ -50,7 +50,7 @@ WORKDIR /root
 COPY confidential-distributed-softbus.tar.gz /root
 RUN tar -zxvf confidential-distributed-softbus.tar.gz && rm confidential-distributed-softbus.tar.gz
 WORKDIR /root/confidential-distributed-softbus/build
-RUN make install && cd ../.. && rm -rf /root/confidential-distributed-softbus
+RUN make install -j4 && cd ../.. && rm -rf /root/confidential-distributed-softbus
 
 WORKDIR /workspace/build_deps
 COPY TEE-Capability.tar.gz /workspace/build_deps
@@ -69,6 +69,9 @@ ENV http_proxy "http://172.17.0.1:7890"
 ENV HTTP_PROXY "http://172.17.0.1:7890"  
 ENV https_proxy "http://172.17.0.1:7890"  
 ENV HTTPS_PROXY "http://172.17.0.1:7890"  
+
+COPY penglai_sign /usr/bin
+COPY SM2PrivateKey.pem /root
 
 CMD ["/bin/bash"]  
 
