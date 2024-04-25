@@ -50,8 +50,8 @@ cd Penglai-Enclave-sPMP
 export PENGLAI_HOME=`pwd`
 # build opensbi
 bash ./build_opensbi.sh
-# build the driver
-bash ./scripts/build_driver_for_oh.sh
+# build the driver, this step is optional since we have installed it in provisioned image
+# bash ./scripts/build_driver_for_oh.sh
 cd ..
 ```
 

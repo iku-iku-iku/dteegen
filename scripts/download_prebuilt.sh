@@ -2,7 +2,7 @@
 
 mkdir -p polyos && cd polyos
 if [ ! -d "images" ]; then
-    wget https://filebin.net/m6q51s538bgd12p1/images.tar.gz &&
+    wget -O images.tar.gz https://ipads.se.sjtu.edu.cn:1313/f/aaf69826370c4f7eaa30/?dl=1 &&
     tar -zxvf images.tar.gz &&
     mkdir -p out/riscv64_virt/packages/phone/images &&
     mv images/* out/riscv64_virt/packages/phone/images

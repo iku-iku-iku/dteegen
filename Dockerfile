@@ -18,6 +18,18 @@ strace \
     g++-riscv64-linux-gnu \
     binutils-riscv64-linux-gnu
 
+WORKDIR /root
+COPY foonathan_memory_vendor.tar.gz /root
+RUN tar -zxvf foonathan_memory_vendor.tar.gz && rm foonathan_memory_vendor.tar.gz
+WORKDIR /root/foonathan_memory_vendor/build
+RUN make install && rm -rf /root/foonathan_memory_vendor
+
+WORKDIR /root
+COPY confidential-distributed-softbus.tar.gz /root
+RUN tar -zxvf confidential-distributed-softbus.tar.gz && rm confidential-distributed-softbus.tar.gz
+WORKDIR /root/confidential-distributed-softbus/build
+RUN make install -j4 && cd ../.. && rm -rf /root/confidential-distributed-softbus
+
 COPY libjustworkaround.a /usr/lib
 COPY libunwind.a /usr/lib
 
@@ -37,18 +49,6 @@ RUN tar -zxvf riscv64-linux-musl.tar.gz && rm riscv64-linux-musl.tar.gz
 WORKDIR /workspace
 COPY secGear.tar.gz /workspace
 RUN tar -zxvf secGear.tar.gz && rm secGear.tar.gz
-
-WORKDIR /root
-COPY foonathan_memory_vendor.tar.gz /root
-RUN tar -zxvf foonathan_memory_vendor.tar.gz && rm foonathan_memory_vendor.tar.gz
-WORKDIR /root/foonathan_memory_vendor/build
-RUN make install && rm -rf /root/foonathan_memory_vendor
-
-WORKDIR /root
-COPY confidential-distributed-softbus.tar.gz /root
-RUN tar -zxvf confidential-distributed-softbus.tar.gz && rm confidential-distributed-softbus.tar.gz
-WORKDIR /root/confidential-distributed-softbus/build
-RUN make install -j4 && cd ../.. && rm -rf /root/confidential-distributed-softbus
 
 WORKDIR /workspace/build_deps
 COPY TEE-Capability.tar.gz /workspace/build_deps
