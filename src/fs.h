@@ -16,6 +16,12 @@ inline std::string read_file(const std::string &file_path) {
   }
 }
 
+inline const auto relative_path(const std::string &path, const std::string &base)
+{
+    const auto n = path.size(), m = base.size();
+    return path.substr(m + 1, n - m);
+}
+
 inline bool is_source_file(const std::filesystem::path &p) {
   return p.extension() == ".c" || p.extension() == ".cpp" ||
          p.extension() == ".cc";

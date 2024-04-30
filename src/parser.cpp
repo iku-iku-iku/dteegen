@@ -250,6 +250,7 @@ struct TranslationUnitManager
 
         CXIndex index = clang_createIndex(0, 0);
         const char *args[] = {
+            "-fsyntax-only"
             "-E"
         };
         CXTranslationUnit unit = clang_parseTranslationUnit(

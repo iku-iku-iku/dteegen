@@ -1,6 +1,7 @@
 # NOTE: please your libs in the riscv64 and x64 directories
 
-if(${CMAKE_CXX_COMPILER} MATCHES "riscv64-linux-gnu-g\\+\\+" OR $ENV{CXX} MATCHES "riscv64-linux-gnu-g\\+\\+" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "riscv")
+#if(${CMAKE_CXX_COMPILER} MATCHES "riscv64-linux-gnu-g\\+\\+" OR $ENV{CXX} MATCHES "riscv64-linux-gnu-g\\+\\+" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "riscv")
+if((${CMAKE_CXX_COMPILER} MATCHES "riscv64-linux-gnu-g\\+\\+") OR ($ENV{CXX} MATCHES "riscv64-linux-gnu-g\\+\\+") OR (${CMAKE_SYSTEM_PROCESSOR} MATCHES "riscv"))
   set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/riscv64")
   message(STATUS "Target architecture is RISC-V")
 else()

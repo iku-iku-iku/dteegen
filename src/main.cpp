@@ -1,20 +1,15 @@
 #include <filesystem>
 
 #include "collector.h"
-#include "elf_parser.h"
 #include "fs.h"
+#include "generator.h"
 #include "parser.h"
 #include "path_context.h"
 #include "pch.h"
 #include "pipe/cmake_transform.h"
 #include "template.h"
 
-const auto relative_path(const std::string &path, const std::string &base)
-{
-    const auto n = path.size(), m = base.size();
-    return path.substr(m + 1, n - m);
-}
-#define POOL_SIZE 1
+#define POOL_SIZE 4
 
 constexpr auto SKIP_COPY_OPTION = std::filesystem::copy_options::skip_existing;
 constexpr auto DIRECTORY_COPY_OPTION =
@@ -53,107 +48,24 @@ void generate_secgear(const std::filesystem::path project_root)
     for (const auto &e : g_func_calls_in_insecure_world) {
         DTEE_LOG("FUNC CALL IN INSECURE WORLD: %s\n", e.c_str());
     }
-    // for (const auto &e : g_func_calls_in_secure_world) {
-    //     DTEE_LOG("FUNC CALL IN SECURE WORLD: %s\n", e.c_str());
-    // }
+    for (const auto &e : g_func_calls_in_secure_world) {
+        DTEE_LOG("FUNC CALL IN SECURE WORLD: %s\n", e.c_str());
+    }
     DTEE_LOG("END COLLECT FUNC CALL\n");
 
-    std::mutex fs_mutex;
-    const auto process_secure_file = [&](const auto secure_func_file) {
-        const auto secure_func_filepath = secure_func_file.path();
-        if (!is_source_file(secure_func_filepath)) {
-            return;
-        }
-
-        DTEE_LOG("BEGIN PROCESS SECURE FILE: %s\n",
-                 secure_func_file.path().c_str());
-        // collect all secure entry func definition in secure func file
-        FileContext f_ctx{.file_path = secure_func_filepath.string()};
-        parse_file(f_ctx, secure_world_entry_func_def_collect_visitor);
-
-        // if the secure file doesn't contain definition of secure entry func,
-        // then it's just a normal file, e.g. header file
-        if (tls_func_list_each_file.empty()) {
-            /* const auto new_path = */
-            /*     generated_enclave / */
-            /*     (secure_func_filepath.lexically_relative(project_root)); */
-            /* std::filesystem::create_directories(new_path.parent_path()); */
-            /**/
-            /* // simply copy no-def file to enclave, cause it maybe needed. */
-            /* std::filesystem::copy_file( */
-            /*     secure_func_filepath, new_path, */
-            /*     std::filesystem::copy_options::overwrite_existing); */
-            DTEE_LOG("END PROCESS SECURE FILE: %s (no entry func found)\n",
-                     secure_func_file.path().c_str());
-            return;
-        }
-        else {
-            for (const auto &f : tls_func_list_each_file) {
-                DTEE_LOG("FOUND secure entry func: %s\n", f.name.c_str());
-            }
-        }
-
-        SourceContext ctx;
-        ctx.project = project_root.filename();
-        ctx.src_path = relative_path(secure_func_filepath, project_root);
-        ctx.src_content = read_file_content(secure_func_filepath);
-
-        // process secure func template for funcs in this file
-        for_each_file_in_path_recursive(
-            path_ctx.secure_func_template_path_,
-            [&](const auto &e) { generate_with_template(e.path(), ctx); });
-
-        tls_secure_entry_func_list.insert(tls_secure_entry_func_list.end(),
-                                          tls_func_list_each_file.begin(),
-                                          tls_func_list_each_file.end());
-        tls_func_list_each_file.clear();
-        DTEE_LOG("END PROCESS SECURE FILE: %s\n",
-                 secure_func_file.path().c_str());
-    };
-
-    const auto process_insecure_file = [&, project_root](
-                                           const auto &insecure_func_file) {
-        const auto insecure_func_filepath = insecure_func_file.path();
-        if (!is_source_file(insecure_func_filepath)) {
-            return;
-        }
-
-        DTEE_LOG("BEGIN PROCESS INSECURE FILE: %s\n",
-                 insecure_func_file.path().c_str());
-        FileContext f_ctx{.file_path = insecure_func_filepath.string()};
-        parse_file(f_ctx, insecure_world_entry_func_def_collect_visitor);
-
-        // not contain definition of insecure entry func
-        if (tls_func_list_each_file.empty()) {
-            DTEE_LOG("END PROCESS INSECURE FILE: %s (no entry func found)\n",
-                     insecure_func_file.path().c_str());
-            return;
-        }
-
-        SourceContext ctx;
-        ctx.project = project_root.filename();
-        ctx.src_path = relative_path(insecure_func_filepath, project_root);
-        ctx.src_content = read_file_content(insecure_func_filepath);
-
-        for_each_file_in_path_recursive(
-            path_ctx.insecure_func_template_path_,
-            [&](const auto &e) { generate_with_template(e.path(), ctx); });
-
-        tls_insecure_entry_func_list.insert(tls_insecure_entry_func_list.end(),
-                                            tls_func_list_each_file.begin(),
-                                            tls_func_list_each_file.end());
-        tls_func_list_each_file.clear();
-        DTEE_LOG("END PROCESS INSECURE FILE: %s\n",
-                 insecure_func_file.path().c_str());
-    };
+    DTEE_LOG("BEGIN GENERATE\n");
 
     for_each_file_in_path_recursive_parallel(
-        path_ctx.secure_root_, process_secure_file, skip_dir, pool);
+        path_ctx.secure_root_,
+        NaiveGenerator<WorldType::SECURE_WORLD>(path_ctx), skip_dir, pool);
 
     for_each_file_in_path_recursive_parallel(
-        path_ctx.insecure_root_, process_insecure_file, skip_dir, pool);
+        path_ctx.insecure_root_,
+        NaiveGenerator<WorldType::INSECURE_WORLD>(path_ctx), skip_dir, pool);
 
     pool.wait_queue_empty();
+
+    DTEE_LOG("END GENERATE\n");
 
     DTEE_LOG("process project level template now\n");
     if (std::filesystem::exists(path_ctx.insecure_root_cmake_path_)) {

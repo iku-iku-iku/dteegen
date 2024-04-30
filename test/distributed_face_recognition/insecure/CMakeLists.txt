@@ -18,7 +18,7 @@ set(COMPUTE_NODE_FILES
   compute_node.cpp file.cpp
 )
 
-if(${CMAKE_CXX_COMPILER} MATCHES "riscv64-linux-gnu-g\\+\\+" OR $ENV{CXX} MATCHES "riscv64-linux-gnu-g\\+\\+" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "riscv")
+if(CMAKE_CXX_COMPILER MATCHES "riscv64-linux-gnu-g\\+\\+" OR ENV{CXX} MATCHES "riscv64-linux-gnu-g\\+\\+" OR CMAKE_SYSTEM_PROCESSOR MATCHES "riscv")
   add_subdirectory(ncnn_retinanet.rv)
   include_directories(ncnn_retinanet.rv)
 else()
