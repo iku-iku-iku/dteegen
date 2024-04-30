@@ -1,7 +1,10 @@
 #include <filesystem>
 
+#include "collector.h"
+#include "elf_parser.h"
 #include "fs.h"
 #include "parser.h"
+#include "path_context.h"
 #include "pch.h"
 #include "pipe/cmake_transform.h"
 #include "template.h"
@@ -11,13 +14,7 @@ const auto relative_path(const std::string &path, const std::string &base)
     const auto n = path.size(), m = base.size();
     return path.substr(m + 1, n - m);
 }
-#define POOL_SIZE 4
-#define TEMPLATE "template"
-#define SECURE_FUNC_TEMPLATE_PATH (TEMPLATE "/secure_func_template")
-#define INSECURE_FUNC_TEMPLATE_PATH (TEMPLATE "/insecure_func_template")
-#define PROJECT_TEMPLATE_PATH (TEMPLATE "/project_template")
-#define TEMPLATE_PROJECT_PATH (TEMPLATE "/template_project")
-#define TEE_CAPABILITY_PATH (TEMPLATE "/TEE-Capability")
+#define POOL_SIZE 1
 
 constexpr auto SKIP_COPY_OPTION = std::filesystem::copy_options::skip_existing;
 constexpr auto DIRECTORY_COPY_OPTION =
@@ -25,28 +22,11 @@ constexpr auto DIRECTORY_COPY_OPTION =
     std::filesystem::copy_options::overwrite_existing;
 void generate_secgear(const std::filesystem::path project_root)
 {
-    std::filesystem::path generated_path("generated");
-    const auto template_path = std::filesystem::path(TEMPLATE);
-    const auto generated_host = generated_path / HOST;
-    const auto generated_enclave = generated_path / ENCLAVE;
-    const auto secure_root = project_root / SECURE;
-    const auto insecure_root = project_root / INSECURE;
-    const auto project_secure_lib = secure_root / SECURE_LIB;
-    const auto generated_enclave_lib = generated_enclave / ENCLAVE_LIB;
-    const auto project_secure_include = secure_root / SECURE_INCLUDE;
-    const auto generated_enclave_include = generated_enclave / ENCLAVE_INCLUDE;
-    const auto insecure_func_template_path =
-        template_path / "insecure_func_template";
-    const auto secure_func_template_path =
-        template_path / "secure_func_template";
-    const auto project_template_path = template_path / "project_template";
-    const auto project_root_cmake_path = project_root / "CMakeLists.txt";
-    const auto insecure_root_cmake_path = insecure_root / "CMakeLists.txt";
-    const auto secure_root_cmake_path = secure_root / "CMakeLists.txt";
-
+    PathContext path_ctx(project_root);
+    const auto elfs = collect_elf(path_ctx);
     // remove generated first
-    if (std::filesystem::exists(generated_path)) {
-        std::filesystem::remove_all(generated_path);
+    if (std::filesystem::exists(path_ctx.generated_path_)) {
+        std::filesystem::remove_all(path_ctx.generated_path_);
     }
 
     // collect all func calls in secure world and insecure world. for
@@ -60,42 +40,13 @@ void generate_secgear(const std::filesystem::path project_root)
     ctx.project = project_root.filename();
 
     DTEE_LOG("BEGIN COLLECT FUNC CALL\n");
+
     for_each_file_in_path_recursive_parallel(
-        insecure_root,
-        [&](const auto &insecure_file) {
-            const auto insecure_file_path = insecure_file.path();
-            if (!is_source_file(insecure_file_path)) {
-                return;
-            }
-            // parse insecure file to collect func calls
-            FileContext f_ctx{.file_path = insecure_file_path.string()};
-            parse_file(f_ctx, func_call_collect_visitor);
-
-            tls_func_calls_in_insecure_world.insert(
-                tls_func_calls_each_file.begin(),
-                tls_func_calls_each_file.end());
-
-            tls_func_calls_each_file.clear();
-        },
+        path_ctx.insecure_root_, ElfCollector<WorldType::INSECURE_WORLD>(elfs),
         skip_dir, pool);
 
     for_each_file_in_path_recursive_parallel(
-        secure_root,
-        [&](const auto &secure_file) {
-            const auto secure_file_path = secure_file.path();
-
-            if (!is_source_file(secure_file_path)) {
-                return;
-            }
-            // parse secure file to collect func calls
-            FileContext f_ctx{.file_path = secure_file_path.string()};
-            parse_file(f_ctx, func_call_collect_visitor);
-
-            tls_func_calls_in_secure_world.insert(
-                tls_func_calls_each_file.begin(),
-                tls_func_calls_each_file.end());
-            tls_func_calls_each_file.clear();
-        },
+        path_ctx.secure_root_, ElfCollector<WorldType::SECURE_WORLD>(elfs),
         skip_dir, pool);
 
     pool.wait_queue_empty();
@@ -149,7 +100,7 @@ void generate_secgear(const std::filesystem::path project_root)
 
         // process secure func template for funcs in this file
         for_each_file_in_path_recursive(
-            secure_func_template_path,
+            path_ctx.secure_func_template_path_,
             [&](const auto &e) { generate_with_template(e.path(), ctx); });
 
         tls_secure_entry_func_list.insert(tls_secure_entry_func_list.end(),
@@ -185,7 +136,7 @@ void generate_secgear(const std::filesystem::path project_root)
         ctx.src_content = read_file_content(insecure_func_filepath);
 
         for_each_file_in_path_recursive(
-            insecure_func_template_path,
+            path_ctx.insecure_func_template_path_,
             [&](const auto &e) { generate_with_template(e.path(), ctx); });
 
         tls_insecure_entry_func_list.insert(tls_insecure_entry_func_list.end(),
@@ -196,33 +147,34 @@ void generate_secgear(const std::filesystem::path project_root)
                  insecure_func_file.path().c_str());
     };
 
-    for_each_file_in_path_recursive_parallel(secure_root, process_secure_file,
-                                             skip_dir, pool);
+    for_each_file_in_path_recursive_parallel(
+        path_ctx.secure_root_, process_secure_file, skip_dir, pool);
 
     for_each_file_in_path_recursive_parallel(
-        insecure_root, process_insecure_file, skip_dir, pool);
+        path_ctx.insecure_root_, process_insecure_file, skip_dir, pool);
 
     pool.wait_queue_empty();
 
     DTEE_LOG("process project level template now\n");
-    if (std::filesystem::exists(insecure_root_cmake_path)) {
-        ctx.root_cmake = read_file_content(insecure_root_cmake_path);
+    if (std::filesystem::exists(path_ctx.insecure_root_cmake_path_)) {
+        ctx.root_cmake = read_file_content(path_ctx.insecure_root_cmake_path_);
     }
 
-    if (std::filesystem::exists(secure_root_cmake_path)) {
-        ctx.host_secure_cmake = read_file_content(secure_root_cmake_path);
+    if (std::filesystem::exists(path_ctx.secure_root_cmake_path_)) {
+        ctx.host_secure_cmake =
+            read_file_content(path_ctx.secure_root_cmake_path_);
     }
 
-    for_each_file_in_path_recursive(project_template_path, [&](const auto &f) {
-        generate_with_template(f.path(), ctx);
-    });
+    for_each_file_in_path_recursive(
+        path_ctx.project_template_path_,
+        [&](const auto &f) { generate_with_template(f.path(), ctx); });
 
     // copy remaining files in secure world to enclave
     for_each_file_in_path_recursive(
-        secure_root,
+        path_ctx.secure_root_,
         [&](const auto &f) {
-            const auto new_path =
-                generated_enclave / f.path().lexically_relative(project_root);
+            const auto new_path = path_ctx.generated_enclave_ /
+                                  f.path().lexically_relative(project_root);
             std::filesystem::create_directories(new_path.parent_path());
             std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION);
         },
@@ -230,54 +182,58 @@ void generate_secgear(const std::filesystem::path project_root)
 
     // copy headers in insecure world to enclave, cause insecure world can
     // include them
-    for_each_file_in_path_recursive(insecure_root, [&](const auto &f) {
-        if (!(f.path().extension() == ".h")) {
-            return;
-        }
-        const auto new_path =
-            generated_enclave / f.path().lexically_relative(project_root);
-        std::filesystem::create_directories(new_path.parent_path());
-        std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION);
-    });
+    for_each_file_in_path_recursive(
+        path_ctx.insecure_root_, [&](const auto &f) {
+            if (!(f.path().extension() == ".h")) {
+                return;
+            }
+            const auto new_path = path_ctx.generated_enclave_ /
+                                  f.path().lexically_relative(project_root);
+            std::filesystem::create_directories(new_path.parent_path());
+            std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION);
+        });
 
     // copy enclave libs
-    if (std::filesystem::exists(project_secure_lib)) {
-        std::filesystem::create_directories(generated_enclave_lib);
-        for (const auto &f :
-             std::filesystem::directory_iterator(project_secure_lib)) {
+    if (std::filesystem::exists(path_ctx.project_secure_lib_)) {
+        std::filesystem::create_directories(path_ctx.generated_enclave_lib_);
+        for (const auto &f : std::filesystem::directory_iterator(
+                 path_ctx.project_secure_lib_)) {
             const auto relative_path =
-                f.path().lexically_relative(project_secure_lib);
+                f.path().lexically_relative(path_ctx.project_secure_lib_);
 
-            std::filesystem::copy(f.path(),
-                                  generated_enclave_lib / relative_path,
-                                  DIRECTORY_COPY_OPTION);
+            std::filesystem::copy(
+                f.path(), path_ctx.generated_enclave_lib_ / relative_path,
+                DIRECTORY_COPY_OPTION);
         }
     }
 
     // copy enclave includes
-    if (std::filesystem::exists(project_secure_include)) {
-        std::filesystem::create_directories(generated_enclave_include);
-        for (const auto &f :
-             std::filesystem::directory_iterator(project_secure_include)) {
+    if (std::filesystem::exists(path_ctx.project_secure_include_)) {
+        std::filesystem::create_directories(
+            path_ctx.generated_enclave_include_);
+        for (const auto &f : std::filesystem::directory_iterator(
+                 path_ctx.project_secure_include_)) {
             const auto relative_path =
-                f.path().lexically_relative(project_secure_include);
+                f.path().lexically_relative(path_ctx.project_secure_include_);
 
-            std::filesystem::copy(f.path(),
-                                  generated_enclave_include / relative_path,
-                                  DIRECTORY_COPY_OPTION);
+            std::filesystem::copy(
+                f.path(), path_ctx.generated_enclave_include_ / relative_path,
+                DIRECTORY_COPY_OPTION);
         }
     }
 
     // copy remaining files in project root to host
-    for_each_file_in_path_recursive(project_root, [&](const auto &f) {
+    for_each_file_in_path_recursive(path_ctx.project_root_, [&](const auto &f) {
         const auto new_path =
-            generated_host / f.path().lexically_relative(project_root);
+            path_ctx.generated_host_ /
+            f.path().lexically_relative(path_ctx.project_root_);
         std::filesystem::create_directories(new_path.parent_path());
         std::filesystem::copy_file(f.path(), new_path, SKIP_COPY_OPTION);
     });
 
-    replace_case_insensitive(generated_host / SECURE / "CMakeLists.txt",
-                             "add_library", "tee_add_library");
+    replace_case_insensitive(
+        path_ctx.generated_host_ / SECURE / "CMakeLists.txt", "add_library",
+        "tee_add_library");
 }
 
 void convert(std::string project_path) { generate_secgear(project_path); }

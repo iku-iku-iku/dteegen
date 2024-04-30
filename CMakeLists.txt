@@ -17,7 +17,7 @@ message(STATUS "Clang library directories: ${CLANG_LIBRARIES}")
 include_directories(${CLANG_INCLUDEDIR} src)
 #add_definitions(${CLANG_DEFINITIONS})
 
-set(SOURCE_FILES src/main.cpp src/parser.cpp src/template.cpp src/pipe/cmake_transform.cpp)
+set(SOURCE_FILES src/main.cpp src/parser.cpp src/collector.cpp src/elf_parser.cpp src/template.cpp src/pipe/cmake_transform.cpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${CLANG_LIBS} pthread)

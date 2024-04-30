@@ -13,14 +13,6 @@
 #include <unordered_set>
 #include <vector>
 
-#define SECURE "secure"
-#define INSECURE "insecure"
-#define ENCLAVE "enclave"
-#define HOST "host"
-#define SECURE_LIB "secure_lib"
-#define ENCLAVE_LIB "enclave_lib"
-#define SECURE_INCLUDE "secure_include"
-#define ENCLAVE_INCLUDE "enclave_include"
 
 enum class WorldType : uint8_t { SECURE_WORLD, INSECURE_WORLD };
 
