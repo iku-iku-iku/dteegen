@@ -23,3 +23,8 @@ enum class WorldType : uint8_t { SECURE_WORLD, INSECURE_WORLD };
     fprintf(stderr, "Assertion failed: %s, " msg "\n", #x, ##__VA_ARGS__);     \
     exit(-1);                                                                  \
   }
+
+constexpr auto SKIP_COPY_OPTION = std::filesystem::copy_options::skip_existing;
+constexpr auto DIRECTORY_COPY_OPTION =
+    std::filesystem::copy_options::recursive |
+    std::filesystem::copy_options::overwrite_existing;
